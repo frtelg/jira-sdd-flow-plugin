@@ -263,20 +263,43 @@ fields unless the user brings them up. Keep this phase tight.
 
 ### 4c. Reconcile parent and siblings (existing-ticket mode only)
 
+Parent and sibling tickets belong to other people's in-flight work. They
+must never be rewritten wholesale, even when the grill produces a cleaner
+structure for them. Edits to these tickets are strictly **in-place line
+patches**: keep every byte of the existing description except the specific
+line or contiguous lines that are inconsistent with the resolved
+understanding.
+
 For every inconsistency the grill resolved against a parent or sibling
 ticket:
 
-1. Compute the minimal edit to that ticket's description to bring it into
-   alignment.
-2. Show the diff to the user.
-3. After approval, update that ticket's description using the MCP.
-4. Add a comment on that ticket explaining the change. The comment must
+1. Identify the exact line (or smallest contiguous span of lines) in that
+   ticket's description that is inconsistent.
+2. Compose a **patched description** by taking the description verbatim
+   and replacing only that line / span with the corrected text. Do not
+   reformat, reorder, normalise whitespace, restructure sections, fix
+   typos elsewhere, or "tidy" surrounding content. If the inconsistency
+   spans multiple non-contiguous lines, treat each one as its own patch.
+3. Show the user a diff that contains only the changed line(s). If the
+   diff touches anything outside the inconsistent span, you have rewritten
+   the ticket — go back to step 2.
+4. **Immediately before** calling the MCP write, re-fetch the ticket's
+   current description and verify two things:
+   - The line(s) you are about to replace still exist verbatim in the
+     latest description.
+   - No other part of the description has changed in a way that would
+     make the patch land in the wrong place.
+   If either check fails, stop. Surface the drift to the user and ask
+   whether to recompute the patch against the new description or abandon
+   the reconcile. Never force the old patch onto a changed description.
+5. After approval and a clean re-fetch, apply the patch via the MCP.
+6. Add a comment on that ticket explaining the change. The comment must
    include:
    - what changed (a one-line summary of the edit)
    - why (link back to the target ticket: "Aligned with {ISSUE-KEY} after
      grill session on {ISO-8601 date}.")
    - any decision the user made that drove the change
-5. Do not comment on the target ticket itself for these edits — the updated
+7. Do not comment on the target ticket itself for these edits — the updated
    description is the record there.
 
 If the user declines a parent/sibling edit, record the inconsistency under
@@ -289,6 +312,11 @@ silently lost.
 - If the MCP write fails, surface the error verbatim and stop. Do not retry
   with a destructive flag.
 - Never delete fields you did not author. Edit, do not replace, when in doubt.
+- Only the **target ticket** (the one being grilled, Phase 4a) may have its
+  description rewritten end-to-end. Every other ticket touched by this skill
+  — parents, siblings, anything reached via reconcile — is edited as an
+  in-place line patch only (see 4c). A full-description write on a non-target
+  ticket is treated as a bug.
 
 ## Output Style
 

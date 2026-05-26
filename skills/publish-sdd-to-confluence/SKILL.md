@@ -72,6 +72,26 @@ Requirements → Specs. Re-show any draft that changes downstream of an
 edit (e.g. if the user reframes Intent, regenerate Requirements and
 Specs to match).
 
+### Title prefix rule (all four pages)
+
+Confluence Cloud requires page titles to be unique within a space.
+Generic titles like `Intent`, `Requirements`, or `Specs` will collide
+with any pre-existing page of the same name (e.g. the SDD root page
+itself is often named `Specs`).
+
+Every page this skill creates must therefore have a title beginning
+with `[KEY]`, where `KEY` is the Jira issue key:
+
+- Landing: `[KEY]: <change name>` (the colon and change name follow
+  the historical landing format).
+- Intent: `[KEY] Intent`
+- Requirements: `[KEY] Requirements`
+- Specs: `[KEY] Specs`
+
+These exact titles are what downstream skills (`implement-sdd-spec`,
+`create-subtasks`) look up under the landing page's children. Do not
+deviate from the format.
+
 ### Bidirectional linking (landing page only)
 
 The landing page is the single Confluence anchor for the Jira ticket.
@@ -106,7 +126,7 @@ re-publishes.
 
 ### 2b. Intent page
 
-- Title: `Intent`
+- Title: `[KEY] Intent`
 - Body sections:
   1. **Why** — the motivation. Pull from the grilled Context and any
      business rationale in the ticket or parent epic.
@@ -118,7 +138,7 @@ re-publishes.
 
 ### 2c. Requirements page
 
-- Title: `Requirements`
+- Title: `[KEY] Requirements`
 - Body: a single bulleted list. Each bullet is one requirement, phrased
   as a testable statement of need. Group with H2 sub-headings only if
   the list is long enough to need grouping (>10 items).
@@ -132,7 +152,7 @@ re-publishes.
 
 ### 2d. Specs page (Gherkin)
 
-- Title: `Specs`
+- Title: `[KEY] Specs`
 - Body: one or more `Feature:` blocks in Gherkin syntax inside fenced
   code blocks (` ```gherkin `). Each `Feature:` groups related scenarios.
 - **Every `Scenario:` must carry a stable ID tag** of the form

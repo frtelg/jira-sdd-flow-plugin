@@ -79,8 +79,11 @@ available, say so and stop.
    2. A Confluence search in `${CONFLUENCE_SPACE_KEY}` for a page titled
       `[KEY]: ...` where `KEY` is `SDD_KEY`.
 4. **Fetch the SDD set.** From the landing page ID, list its child pages
-   and fetch the three named `Intent`, `Requirements`, and `Specs`. Keep
-   the markdown of each.
+   and fetch the three titled `[SDD_KEY] Intent`, `[SDD_KEY] Requirements`,
+   and `[SDD_KEY] Specs` — the `[KEY]` prefix is mandated by
+   `publish-sdd-to-confluence` to keep titles unique within the space.
+   Keep the markdown of each. If any of the three children is missing
+   under the expected title, treat it as a missing SDD page (see step 5).
 5. **Decide whether to continue.** Refuse and stop, with a clear message,
    in any of these cases:
    - No landing page is found on `SDD_KEY`. Recommend running

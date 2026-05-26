@@ -69,8 +69,11 @@ If no Atlassian MCP server is available, say so and stop.
    2. A Confluence search in `${CONFLUENCE_SPACE_KEY}` for a page
       titled `[KEY]: ...` where `KEY` is the parent's key.
 4. **Fetch the SDD set.** From the landing page, list its child pages
-   and fetch `Intent`, `Requirements`, and `Specs`. Capture the Specs
-   page URL — subtask descriptions link to it.
+   and fetch the three titled `[PARENT-KEY] Intent`,
+   `[PARENT-KEY] Requirements`, and `[PARENT-KEY] Specs` — the `[KEY]`
+   prefix is mandated by `publish-sdd-to-confluence` to keep titles
+   unique within the space. Capture the Specs page URL — subtask
+   descriptions link to it.
 5. **Parse the Specs page.** Extract every `Scenario:` together with
    its `@SCN-NNN` tag. Build the full set of parent scenario IDs.
 6. **Refuse and stop** if any of:

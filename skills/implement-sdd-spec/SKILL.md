@@ -176,11 +176,68 @@ available, say so and stop.
    discovered in Phase 1; do not introduce a new one.
 3. Translate Gherkin steps into idiomatic tests in the host project's
    style. The mapping is `Scenario:` → one test case; `Given/When/Then`
-   → arrange/act/assert. Keep one scenario per test so coverage is
-   traceable one-to-one.
-4. Use synthetic placeholders in fixtures (e.g. `participant_001`,
+   → arrange/act/assert.
+4. **Tag every test with its scenario** using a comment on the line
+   immediately above the test declaration:
+
+   ```
+   SDD: <KEY> @SCN-NNN
+   ```
+
+   `<KEY>` is the parent SDD's Jira key (`SDD_KEY`), not the subtask's
+   key. The `SDD:` prefix is mandatory and exists so the tag can be
+   greppped reliably without false matches in unrelated comments.
+
+   Use the host language's single-line comment style:
+   - `// SDD: PROJ-123 @SCN-001` for JS / TS / Java / Kotlin / Go /
+     Rust / Swift / C / C++ / C#.
+   - `# SDD: PROJ-123 @SCN-001` for Python / Ruby / Shell / Perl.
+   - `-- SDD: PROJ-123 @SCN-001` for SQL / Haskell / Lua.
+
+   If a single test exercises multiple scenarios, stack tags — one tag
+   per line, in declaration order:
+
+   ```
+   // SDD: PROJ-123 @SCN-002
+   // SDD: PROJ-123 @SCN-003
+   it("...", () => { ... });
+   ```
+
+   These tags are the canonical machine-readable mapping between
+   scenarios and tests; downstream `reconcile-sdd` reads them directly
+   rather than re-deriving coverage. Do not put the scenario ID in the
+   test name or in any other position — the tag goes only in the
+   comment above the test declaration.
+5. **Before writing a new test for a scenario, look for an existing
+   tagged test.** Grep the project's test tree for
+   `SDD: <SDD_KEY> @SCN-NNN` for the scenario you are about to cover.
+   For each hit, read the surrounding test and decide:
+
+   - **Same testing layer, asserts what the current Gherkin says.**
+     Reuse it. Do not write a duplicate. If the test happens to be
+     stale relative to the current Gherkin in a non-material way
+     (rewording, comment edits), do not touch it.
+   - **Same testing layer, asserts something different from the
+     current Gherkin.** The Gherkin has changed since the test was
+     written. Update the test to match the current Gherkin —
+     **Gherkin leads at implement-time**. If the change is large
+     enough that rewriting is cleaner than editing in place, delete
+     the old test (carrying its tag forward) and replace it.
+   - **Different testing layer than where this subtask should land
+     tests** (e.g. an existing backend test exists, but this subtask
+     is the frontend slice that needs an e2e test at its own layer):
+     ask the user whether to (a) add a parallel tagged test at this
+     layer, or (b) treat the existing test as sufficient coverage.
+     Default recommendation: (a) when the subtask was created for a
+     distinct layer per `create-subtasks`, (b) otherwise.
+
+   "Same testing layer" is judged from the discovered test layout: a
+   test that sits in the same test directory and uses the same
+   framework as where this subtask's tests would land is the same
+   layer. When in doubt, ask the user rather than guessing.
+6. Use synthetic placeholders in fixtures (e.g. `participant_001`,
    `PROJ-001`, `user@example.com`). Never use real tenant data.
-5. Keep the diff scoped to the requirements. Every changed line should
+7. Keep the diff scoped to the requirements. Every changed line should
    trace to a requirement or to a test for one. If you find unrelated
    issues, mention them in the final report rather than fixing them in
    the same change.
@@ -188,10 +245,14 @@ available, say so and stop.
 ## Phase 4 — Verify exhaustively
 
 1. Run the project's full test command (the one discovered in Phase 1).
-2. Build a **coverage matrix**: every **in-scope** scenario → the test
-   that covers it → pass / fail. Out-of-scope scenarios (subtask
-   invocation) do not appear in the matrix. Every row must have a test;
-   every row must be green before the skill considers itself done.
+2. Build a **coverage matrix** by grepping the test tree for
+   `SDD: <SDD_KEY> @SCN-NNN` tags: every **in-scope** scenario → the
+   tagged test(s) that cover it → pass / fail. Out-of-scope scenarios
+   (subtask invocation) do not appear in the matrix. Every in-scope
+   row must have at least one tagged test, and every test in the
+   matrix must be green before the skill considers itself done. A
+   scenario with no tag hit anywhere in the tree is a coverage gap —
+   write a tagged test for it before continuing.
 3. If an in-scope scenario has no test, write one. If a test fails, fix
    the production code; do not weaken the test to make it pass.
 4. If an in-scope scenario cannot be implemented as written (because
@@ -267,6 +328,17 @@ When every in-scope scenario has a passing test:
   want testing wired up before continuing.
 - Specs are never weakened to make tests pass. Either the code changes
   or the spec changes; never the test in isolation.
+- **Gherkin leads at implement-time.** When an existing tagged test
+  no longer matches the current Gherkin, the test is updated to match
+  the Gherkin. (The inverse rule — tests leading — applies only at
+  reconcile-time, after the parent ticket has been resolved; see
+  `reconcile-sdd`.)
+- Every test this skill writes carries a `SDD: <SDD_KEY> @SCN-NNN`
+  tag comment on the line immediately above its declaration, in the
+  host language's single-line comment style. Tags are the canonical
+  machine-readable link between scenarios and tests. The skill never
+  writes an untagged test for an in-scope scenario, and never relies
+  on test names or file paths to encode the link.
 - The skill never invents requirements or scenarios that aren't on the
   Confluence Specs page. If something is missing, route the user back
   to `publish-sdd-to-confluence` (or `grill-jira-ticket` if the ticket

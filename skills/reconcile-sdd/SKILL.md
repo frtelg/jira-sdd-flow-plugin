@@ -86,84 +86,143 @@ is available, say so and stop.
 
 ## Phase 2 — Build the as-built picture
 
-Tests are the source of truth. The Jira coverage-matrix comments posted
-by `implement-sdd-spec` are the directory that maps `@SCN-NNN` to test
-paths.
+Tests are the source of truth. The canonical mapping from scenario to
+test lives in the test source itself as a tag comment written by
+`implement-sdd-spec` on the line directly above each test:
 
-1. **Gather coverage comments.** Read comments on the parent plus every
-   subtask. Look for `implement-sdd-spec`'s coverage-matrix block
-   (`@SCN-NNN → test → status`). Build a map `@SCN-NNN → [test paths]`.
-2. **Verify the mapping is complete.** Every `@SCN-NNN` on the Specs
-   page must appear in the map. If any are missing, list them — they
-   are gaps to flag, not auto-fixable.
-3. **Read each test.** From its source, extract what the test actually
-   asserts in observable terms (arrange / act / assert). Do not run
-   the tests in this skill; they were green when `implement-sdd-spec`
-   reported, and re-running is operator workflow.
-4. **Classify each scenario:**
-   - **Aligned.** Test behaviour matches the Gherkin closely enough
-     that no edit is needed.
-   - **Drift.** Test exists and is green, but the Gherkin and the test
-     diverge in observable behaviour. The test is leading; the Gherkin
-     needs an update.
-   - **TODO with implementation.** Scenario carries a `# TODO:` in the
-     Specs page but a real test covers it. The TODO should be removed
-     and the Gherkin made to match the test.
-   - **TODO still TODO.** Scenario carries a `# TODO:` and no test
-     covers it. Flag as unfinished work despite resolved status; do
-     not auto-edit.
-   - **Missing test.** No coverage-matrix entry. Flag; do not
-     auto-edit.
+```
+SDD: <PARENT_KEY> @SCN-NNN
+```
+
+This skill **trusts** that `implement-sdd-spec` enforced coverage at
+implementation time. It does not re-verify that every scenario has a
+test, and it does not run the tests. Its only job here is detecting
+**content drift** between Gherkin and the test that was tagged to it.
+
+1. **Grep the test tree for tags.** Search every test file under the
+   test layout discovered in Phase 1 for lines matching
+   `SDD: <PARENT_KEY> @SCN-NNN` (`<PARENT_KEY>` exactly; ignore tags
+   pointing at any other ticket). For each hit, capture the file
+   path, the line number, and the test block that begins on the next
+   non-comment line. A test may carry multiple tags (stacked
+   comments) — record each tag separately. The same scenario ID may
+   appear on multiple tests (intentional parallel coverage at
+   different layers) — that is fine, classification handles it.
+2. **Build the scenario → tests map.** Key by `@SCN-NNN`, value is
+   the list of tagged test locations. Tags pointing at scenario IDs
+   that do **not** appear on the parent's Specs page are recorded as
+   **orphan tags** (the scenario was retired by a re-publish, or the
+   tag has a typo).
+3. **Read each tagged test.** From its source, extract what the test
+   actually asserts in observable terms (arrange / act / assert). Do
+   not run the tests; they were green when `implement-sdd-spec`
+   reported and re-running is operator workflow.
+4. **Classify each scenario** on the Specs page:
+   - **Aligned.** At least one tagged test exists, and the test's
+     behaviour matches the Gherkin closely enough that no edit is
+     needed. (If multiple tagged tests at different layers all
+     match, still Aligned.)
+   - **Drift.** At least one tagged test exists, the test is green
+     (per the implementation comment), but the Gherkin and the
+     test's assertions diverge in observable behaviour. **Tests are
+     leading at reconcile-time** — the Gherkin needs an update to
+     match the as-built test. If multiple tagged tests disagree
+     among themselves, surface that as a flag (do not silently pick
+     one); reconciliation can resolve at most a Gherkin/test
+     disagreement, not a test/test one.
+   - **TODO with implementation.** Scenario carries a `# TODO:` in
+     the Specs page but a real tagged test covers it. The TODO
+     should be removed and the Gherkin made to match the test.
+   - **TODO still TODO.** Scenario carries a `# TODO:` and **no
+     tagged test** anywhere in the tree (after also checking the
+     legacy fallback below). Flag as unfinished work despite
+     resolved status; do not auto-edit.
+   - **Untagged-but-legacy.** No tagged test in the tree, but
+     `implement-sdd-spec`'s coverage-matrix Jira comment from a
+     pre-tag implementation names a test for this scenario. Read
+     that test, classify Aligned / Drift as above, and offer to
+     retrofit the source tag at the named location with user
+     approval. The retrofit is a test-source edit and follows the
+     hard rule "tests are leading, Gherkin gets updated, not the
+     test" — only the tag comment is added, never assertion logic.
+   - **Missing.** No tagged test, no legacy comment match. List in
+     the report; do not auto-edit and do not try to derive coverage
+     from semantic similarity. Recommend re-running
+     `implement-sdd-spec` if this is a real gap.
 5. **Check Requirements and Intent for contradictions.** A bullet on
    the Requirements page that asserts behaviour contradicting an
    Aligned/Drift scenario is itself drift. A statement in the Intent's
    "What is changing" section that contradicts the as-built scenarios
    is drift. Build a list of suspect lines; do not edit yet.
-6. **Find orphan tests** (optional, lower priority): tests in the
-   project that look like SDD tests (filenames, naming conventions
-   that match the as-built ones) but have no `@SCN-NNN` mapping. Flag
-   them in the report only; this skill does not propose new
-   `@SCN-NNN` IDs (that is `publish-sdd-to-confluence`'s job).
+6. **Report orphan tags.** Any `SDD: <PARENT_KEY> @SCN-NNN` tag
+   pointing at an ID that no longer exists on the Specs page is
+   reported as drift. Recommended actions are: (a) re-tag to the new
+   ID if the scenario was renumbered (rare; `publish-sdd-to-confluence`
+   tries to preserve IDs), (b) delete the test if its scenario was
+   retired, or (c) leave alone and add a `// SDD: retired` note. Do
+   not auto-delete tests.
 
 ## Phase 3 — Propose current-page updates
 
 Show the user a single reconciliation summary:
 
-- Counts by classification (Aligned / Drift / TODO with impl / TODO
-  still TODO / Missing test).
+- Counts by classification (Aligned / Drift / TODO with impl /
+  TODO still TODO / Untagged-but-legacy / Missing).
+- Count of orphan tags found in the test tree.
 - A per-scenario table for everything not Aligned.
 - A list of suspect Requirements / Intent lines.
 
 For each non-Aligned row that **can** be auto-drafted (Drift, TODO
-with implementation), draft updated Gherkin that matches the test.
-Preserve the existing `@SCN-NNN`. Show the diff per scenario.
+with implementation, Untagged-but-legacy), draft updated Gherkin that
+matches the test. Preserve the existing `@SCN-NNN`. Show the diff per
+scenario.
 
 For Requirements and Intent, draft minimal targeted edits — not
 rewrites. Each edit names the line that changes and the proposed
 replacement.
 
+For each **Untagged-but-legacy** row, also draft the source-tag
+retrofit: the exact comment line to insert above the existing test
+and its file/line location. The retrofit is a test-source edit; show
+it as a diff and require user approval per occurrence in Phase 4.
+
 Collect the user's per-page decisions: approve, edit, or skip. Do not
 proceed to writes until the user has acted on every flagged item.
 
-For TODO-still-TODO and Missing-test rows, do **not** draft an edit.
-Tell the user these are gaps the skill will not touch; recommended
-options are:
+For **TODO still TODO** and **Missing** rows, do **not** draft an
+edit. These are gaps `implement-sdd-spec` is responsible for, not
+this skill. Recommended options for the user are:
 
-- Re-open the relevant Jira issue and complete the work.
-- Re-run `publish-sdd-to-confluence` to drop or rewrite the scenario.
+- Re-open the relevant Jira issue and re-run `/implement-sdd-spec`
+  to complete the work.
+- Re-run `publish-sdd-to-confluence` to drop or rewrite the
+  scenario if it is no longer wanted.
 - Park explicitly with a comment if the gap is intentional.
 
-## Phase 4 — Apply current-page updates
+For **orphan tags**, do not draft an auto-fix. Surface the list and
+let the user decide per tag in Phase 4 whether to re-tag, delete the
+test, or annotate it as retired.
 
-For each approved page:
+## Phase 4 — Apply current-page updates (and tag retrofits)
+
+For each approved Confluence page:
 
 1. Apply the edits in a single update per page (one `update_page`
    call per page, not per scenario).
 2. Show the user the updated page URL.
 
+For each approved **tag retrofit** on a legacy test:
+
+3. Insert exactly the comment line drafted in Phase 3 directly above
+   the existing test declaration. Touch no other line, no
+   surrounding indentation, and no test logic. The retrofit is the
+   only test-source edit this skill is permitted to make.
+4. Show the user the file path and the diff (one inserted line).
+
 If any update fails, surface the error verbatim and stop. Do not
-retry destructively. The skill never deletes pages and never reverts
-prior content beyond the targeted edits the user approved.
+retry destructively. The skill never deletes pages, never reverts
+prior content beyond the targeted edits the user approved, and never
+modifies test assertions or production code under any circumstances.
 
 After this phase the current ticket's Specs / Requirements / Intent
 pages are the **canonical as-built spec**. The next phase compares
@@ -232,34 +291,45 @@ posting the explanatory Jira comment, and never the other way round.
 ## Phase 8 — Report and parent comment
 
 1. Post a single comment on `PARENT_KEY` summarising:
-   - Counts by classification from Phase 2.
+   - Counts by classification from Phase 2 (Aligned / Drift / TODO
+     with impl / TODO still TODO / Untagged-but-legacy / Missing) plus
+     orphan-tag count.
    - Pages updated on the current ticket (titles + URLs).
+   - Tag retrofits applied to legacy tests (file paths only).
    - Siblings updated (ticket keys + page URLs) and siblings the user
      declined or skipped.
-   - Gaps that were not fixed: TODO-still-TODO scenarios, Missing-test
-     scenarios, orphan tests. List each explicitly so the user can
+   - Gaps that were not fixed: TODO-still-TODO scenarios, Missing
+     scenarios, and orphan tags. List each explicitly so the user can
      follow up.
    - The line: "SDD reconciled on {ISO-8601 date}. Tests are the
-     source of truth."
-2. Return a short chat summary: pages updated, siblings updated, gaps
-   outstanding.
-3. If nothing drifted — every scenario Aligned, no sibling changes —
-   the report is a clean no-op: "All aligned, no reconciliation
-   needed." Do not post a parent comment in that case; there is
-   nothing to record.
+     source of truth at reconcile-time."
+2. Return a short chat summary: pages updated, tags retrofitted,
+   siblings updated, gaps outstanding.
+3. If nothing drifted — every scenario Aligned, no orphan tags, no
+   sibling changes, no retrofits — the report is a clean no-op:
+   "All aligned, no reconciliation needed." Do not post a parent
+   comment in that case; there is nothing to record.
 
 ## Hard rules
 
 - No write happens without explicit per-page user approval in the same
   turn as the write request. This applies to the current ticket's
   pages and to every sibling page.
-- Tests are the source of truth. When Gherkin and a passing test
-  disagree, the Gherkin gets updated, not the test. The skill never
-  edits source code, test code, or configuration.
+- Tests are the source of truth at reconcile-time. When Gherkin and
+  a passing test disagree, the Gherkin gets updated, not the test.
+  The skill never edits test assertions, production code, or
+  configuration. The **only** test-source edit permitted is inserting
+  a `SDD: <PARENT_KEY> @SCN-NNN` tag comment above a legacy test
+  during the Phase 4 retrofit, with explicit per-occurrence user
+  approval. No other lines may be touched, not even reformatting or
+  comment cleanup.
 - The skill never runs tests, never pushes commits, never opens MRs,
-  and never transitions Jira ticket status. If reconciliation
-  uncovers a real implementation gap (TODO-still-TODO or Missing
-  test), the skill reports it and stops — it does not auto-fix.
+  and never transitions Jira ticket status. The skill also does not
+  re-verify test coverage — `implement-sdd-spec` is responsible for
+  ensuring every in-scope scenario has a tagged test at implementation
+  time. If reconciliation finds a real gap (TODO-still-TODO, Missing,
+  or an orphan tag the user does not resolve), the skill reports it
+  and stops — it does not auto-fix and does not back-fill coverage.
 - The skill never writes to a sibling's Confluence page without also
   posting an explanatory Jira comment on the sibling's source ticket.
   Never the other way round either.

@@ -49,14 +49,21 @@ This skill reads:
 
 - `${JIRA_BASE_URL}` — Jira instance URL (used for any issue links rendered
   back to the user).
-- `${JIRA_PROJECT_KEY}` — optional default project key, used only when the
-  user mentions a number without a project prefix.
+- `${JIRA_PROJECT_KEY}` — default project key, used when the user mentions
+  a number without a project prefix and when creating a ticket in Phase 4b.
 
-All Jira reads and writes go through whatever Atlassian MCP server is wired
-into the host. Do not hardcode tool names that are specific to one server;
-use whichever Jira tools the MCP exposes (`jira_get_issue`, `jira_search`,
-`jira_update_issue`, `jira_add_comment`, or equivalents). If no Atlassian
-MCP server is available, say so and stop — do not invent ticket content.
+**Assume the Atlassian MCP and the env vars above are already configured.**
+Do not check them up front and do not prompt the user for missing values
+before attempting an MCP call. Use whichever Jira tools the MCP exposes
+(`jira_get_issue`, `jira_search`, `jira_update_issue`, `jira_add_comment`,
+or equivalents); do not hardcode tool names tied to one server.
+
+If an MCP call fails in a way that points at configuration — server
+unavailable, 401/403, a required field rejected as missing, a project key
+that does not resolve — surface the verbatim error to the user and offer
+two options: run `/setup-jira-sdd-environment` to fix the env, or set the
+offending variable directly themselves. Do not retry blindly and do not
+invent ticket content.
 
 ## Phase 1 — Load Context (only when a ticket key is given)
 
@@ -213,8 +220,11 @@ an explicit answer.
 
 1. **Summary.** Draft a single-line summary from the grilled plan. Show it
    to the user and ask for confirmation or an edit.
-2. **Project.** Default to `${JIRA_PROJECT_KEY}`. If that env var is unset,
-   ask the user which Jira project key to create the ticket in.
+2. **Project.** Use `${JIRA_PROJECT_KEY}`. If the MCP later rejects the
+   create call because the project key is missing or does not resolve,
+   surface the verbatim error and route the user to
+   `/setup-jira-sdd-environment` (or to setting `JIRA_PROJECT_KEY`
+   directly) — do not silently fall back to asking for a key here.
 3. **Issue type.** Ask the user which type the ticket should be. Use the
    MCP to fetch the available issue types for the chosen project rather
    than hardcoding a list; present them as the options for the question.

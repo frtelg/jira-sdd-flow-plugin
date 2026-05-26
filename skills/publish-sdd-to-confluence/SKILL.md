@@ -40,14 +40,21 @@ Reads:
 - `${CONFLUENCE_SPACE_KEY}` — Confluence space the pages live in.
 - `${CONFLUENCE_SDD_ROOT_PAGE_ID}` — numeric Confluence page ID of the
   root page under which the landing page is created. Example: for a root
-  page whose URL ends in `.../pages/2494758913/Specs`, the value is
-  `2494758913`. If unset, ask the user once for the ID before proceeding.
+  page whose URL ends in `.../pages/1234567890/Specs`, the value is
+  `1234567890`.
 
-All Jira and Confluence reads and writes go through whatever Atlassian
-MCP server is wired into the host. Use whichever tools the MCP exposes
+**Assume the Atlassian MCP and the env vars above are already configured.**
+Do not check them up front and do not prompt the user for missing values
+before attempting an MCP call. Use whichever tools the MCP exposes
 (`jira_get_issue`, `confluence_create_page`, `confluence_update_page`,
-`jira_create_remote_issue_link`, or equivalents). If no Atlassian MCP
-server is available, say so and stop.
+`jira_create_remote_issue_link`, or equivalents).
+
+If an MCP call fails in a way that points at configuration — server
+unavailable, 401/403, a space key or page ID that does not resolve, a
+required field rejected as missing — surface the verbatim error to the
+user and offer two options: run `/setup-jira-sdd-environment` to fix the
+env, or set the offending variable directly themselves. Do not retry
+blindly and do not invent page content.
 
 ## Phase 1 — Load and Brief
 

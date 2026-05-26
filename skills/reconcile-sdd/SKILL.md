@@ -53,12 +53,19 @@ Reads:
 - `${CONFLUENCE_SDD_ROOT_PAGE_ID}` — numeric ID of the SDD root page;
   used as the scope for cross-space sibling discovery.
 
-All Jira and Confluence reads and writes go through whatever Atlassian
-MCP server is wired into the host (`jira_get_issue`,
-`jira_get_issue` with subtasks, `jira_add_comment`,
+**Assume the Atlassian MCP and the env vars above are already configured.**
+Do not check them up front and do not prompt the user for missing values
+before attempting an MCP call. Use whichever tools the MCP exposes
+(`jira_get_issue`, `jira_get_issue` with subtasks, `jira_add_comment`,
 `confluence_get_page`, `confluence_get_page_children`,
-`confluence_update_page`, or equivalents). If no Atlassian MCP server
-is available, say so and stop.
+`confluence_update_page`, or equivalents).
+
+If an MCP call fails in a way that points at configuration — server
+unavailable, 401/403, a space key or page ID that does not resolve, a
+required field rejected as missing — surface the verbatim error to the
+user and offer two options: run `/setup-jira-sdd-environment` to fix the
+env, or set the offending variable directly themselves. Do not retry
+blindly and do not invent page or ticket content.
 
 ## Phase 1 — Verify readiness
 
@@ -343,7 +350,8 @@ posting the explanatory Jira comment, and never the other way round.
   parent's SDD pages plus user-confirmed sibling pages plus the parent
   Jira ticket plus user-approved sibling Jira tickets. No other
   writes.
-- If `${CONFLUENCE_SDD_ROOT_PAGE_ID}` is unset, ask the user once. The
-  skill cannot discover siblings without it.
 - Never hardcode hostnames, project keys, or space keys in any output.
-  All such values come from the env vars listed above.
+  All such values come from the env vars listed above. If an MCP call
+  fails because `${CONFLUENCE_SDD_ROOT_PAGE_ID}` (or any other env var)
+  is missing or wrong, route the user to `/setup-jira-sdd-environment`
+  per the Configuration block; do not silently fall back to asking.

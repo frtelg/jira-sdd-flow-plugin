@@ -49,11 +49,18 @@ Reads:
   rendering page links).
 - `${CONFLUENCE_SPACE_KEY}` — Confluence space the SDD pages live in.
 
-All Jira and Confluence reads go through whatever Atlassian MCP server is
-wired into the host. Use whichever tools the MCP exposes (`jira_get_issue`,
-`confluence_get_page`, `confluence_get_page_children`, `confluence_search`,
-`jira_add_comment`, or equivalents). If no Atlassian MCP server is
-available, say so and stop.
+**Assume the Atlassian MCP and the env vars above are already configured.**
+Do not check them up front and do not prompt the user for missing values
+before attempting an MCP call. Use whichever tools the MCP exposes
+(`jira_get_issue`, `confluence_get_page`, `confluence_get_page_children`,
+`confluence_search`, `jira_add_comment`, or equivalents).
+
+If an MCP call fails in a way that points at configuration — server
+unavailable, 401/403, a space key that does not resolve, a required field
+rejected as missing — surface the verbatim error to the user and offer two
+options: run `/setup-jira-sdd-environment` to fix the env, or set the
+offending variable directly themselves. Do not retry blindly and do not
+invent ticket or page content.
 
 ## Phase 1 — Load context
 

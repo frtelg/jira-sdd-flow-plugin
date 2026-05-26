@@ -65,7 +65,7 @@ appear in the table. One variable per turn. For each:
 
 1. Explain in one or two sentences what the variable is and where to
    find it. Use synthetic placeholders only (`https://example.atlassian.net`,
-   `PROJ`, `DOCS`, `2494758913`). Never reference a real tenant.
+   `PROJ`, `DOCS`, `1234567890`). Never reference a real tenant.
 2. Show the recommended format and an example.
 3. Ask for the value, unless the variable is the API token (see Secret
    handling below).

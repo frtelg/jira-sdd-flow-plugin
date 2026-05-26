@@ -135,6 +135,23 @@ re-publishes.
 - Title: `Specs`
 - Body: one or more `Feature:` blocks in Gherkin syntax inside fenced
   code blocks (` ```gherkin `). Each `Feature:` groups related scenarios.
+- **Every `Scenario:` must carry a stable ID tag** of the form
+  `@SCN-NNN` (three-digit zero-padded), placed on the line directly
+  above `Scenario:` per Gherkin convention. Examples: `@SCN-001`,
+  `@SCN-042`. These IDs are the contract that lets other skills
+  (notably `create-subtasks` and `implement-sdd-spec`) reference a
+  subset of scenarios; without them, downstream references rot.
+- Numbering rules:
+  - **First publish.** Number scenarios `001`, `002`, ... in
+    declaration order across the entire Specs page (not per
+    `Feature:`).
+  - **Re-publish.** Preserve every existing `@SCN-NNN` for any
+    scenario whose Given/When/Then is materially unchanged. Append
+    new scenarios with the next free number. Do not reuse the ID of
+    a removed scenario — that ID is retired so old subtask
+    references still resolve to "no longer in spec" rather than to
+    an unrelated scenario. If the renumbering plan would touch any
+    existing ID, surface it to the user and ask before publishing.
 - Each scenario must be:
   - **Exhaustive** — cover the happy path, the named edge cases from the
     grilled ticket, and the error paths surfaced during the grill.
@@ -145,7 +162,8 @@ re-publishes.
   - **Independently runnable** — no implicit ordering between scenarios.
 - If a requirement has no corresponding scenario, flag it to the user
   and add a `Scenario:` stub with a `# TODO: ...` comment naming the
-  gap. Do not silently skip.
+  gap. The stub still gets its own `@SCN-NNN` tag so a subtask can
+  claim it once the gap is closed.
 - If the grilled ticket has **Open questions**, list them under a final
   H2 `## Open questions` on this page rather than inside the Gherkin
   block, so they don't get mistaken for unimplemented specs.

@@ -235,6 +235,28 @@ When every in-scope scenario has a passing test:
    scenarios green, files changed. On a subtask invocation, also state
    which sibling scenarios were out of scope so the user can see the
    slice boundary at a glance.
+6. **Last-subtask hint.** On a **subtask** invocation, check whether
+   every sibling subtask of the same parent already has
+   `resolutiondate` set (i.e. is resolved in Jira). If so, this
+   subtask is the last one left and resolving it will complete the
+   parent's slice. Append a hint to the chat summary:
+
+   > "This is the last unresolved subtask of `{SDD_KEY}`. Once you
+   > mark it resolved in Jira, consider running
+   > `/reconcile-sdd {SDD_KEY}` to align the SDD pages with the
+   > as-built tests and reconcile sibling SDDs."
+
+   On a **parent** invocation, append a similar hint when the parent
+   has no subtasks (so implementation completed in one pass):
+
+   > "Once you mark `{WORK_KEY}` resolved in Jira, consider running
+   > `/reconcile-sdd {WORK_KEY}` to align the SDD pages with the
+   > as-built tests and reconcile sibling SDDs."
+
+   The hint is a recommendation, not a status check; do not block on
+   it and do not transition the ticket. If the resolution-state check
+   fails (MCP error, missing field), drop the hint silently rather
+   than guessing.
 
 ## Hard rules
 

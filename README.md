@@ -84,6 +84,20 @@ The MCP server reads environment variables at startup. If Claude Code was
 already running when you set the variables, restart it so the new values take
 effect.
 
+On macOS, GUI-launched clients (the desktop app and IDE integrations started
+from the Dock or Finder) do not read your shell startup files (`.zshenv`,
+`.zshrc`, `.zprofile`), so variables exported there reach a terminal but not a
+GUI-launched app. The symptom is the bundled MCP server receiving an
+unexpanded placeholder such as a literal `${JIRA_BASE_URL}`. Publish the values
+into the per-user launchd environment, then fully quit and reopen the app:
+
+```bash
+launchctl setenv JIRA_BASE_URL "$JIRA_BASE_URL"   # repeat per variable
+```
+
+For persistence across logins, use a login `LaunchAgent` that re-runs
+`launchctl setenv` from your shell environment.
+
 ### 4. Verify connectivity
 
 The setup skill runs a connectivity check automatically (Phase 4). To rerun it

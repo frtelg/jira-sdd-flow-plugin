@@ -140,6 +140,20 @@ reads these env vars at server startup. If the MCP is already running,
 they need to restart Claude Code (or reload the MCP server) before the
 new values take effect.
 
+On macOS, be aware of a launch-context gotcha. GUI-launched clients (the
+Claude desktop app, and IDE integrations started from the Dock or Finder)
+do not source the user's shell startup files, so values set in `~/.zshrc`,
+`~/.zshenv`, or `~/.zprofile` are visible in a terminal but never reach a
+GUI-launched MCP server. The signature is the server receiving an
+unexpanded placeholder, for example a literal `${JIRA_BASE_URL}`. If the
+user runs a GUI client, recommend publishing the values into the per-user
+launchd environment with `launchctl setenv NAME "$NAME"` (one per variable,
+run from a shell that already has them), then fully quitting and reopening
+the app. For persistence across logins, a login `LaunchAgent` that reads
+the shell environment and re-runs `launchctl setenv` works well; it keeps
+the shell rc file as the single source of truth and stores no secret in the
+agent file itself.
+
 ## Phase 4 — Verify
 
 Once the user confirms the env vars are applied and the MCP has been
@@ -151,7 +165,11 @@ and stop at the first failure:
 1. **Jira auth.** Call a low-cost authenticated endpoint, e.g. a
    user-profile or accessible-projects lookup. If it fails with 401 or
    403, the URL, email, or token is wrong — surface the verbatim error
-   and recommend regenerating the token.
+   and recommend regenerating the token. If instead the error contains an
+   unexpanded placeholder (a literal `${JIRA_BASE_URL}` or similar in the
+   URL), the MCP server was launched without the env vars in scope; on
+   macOS this is the GUI-launch case covered in Phase 3, so point the user
+   there rather than at the token.
 2. **Project key.** Verify `${JIRA_PROJECT_KEY}` resolves to a project
    the authenticated user can read. If it returns "not found" or "no
    permission", tell the user the key is wrong or their account lacks

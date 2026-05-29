@@ -135,8 +135,22 @@ invent ticket or page content.
    - existing test layout and naming conventions
    Do not assume. If the project's language or test framework cannot be
    determined, ask the user once before continuing.
+10. **Recommend the consistency gate.** `analyze-sdd` is the canonical
+    pre-implement coherence check for the full path. If the user has not
+    already run it for this ticket, recommend `/analyze-sdd {WORK_KEY}`
+    before continuing — it reports orphan requirements, uncited
+    scenarios, in-scope TODO stubs, unresolved open questions,
+    near-duplicate scenarios, and Jira/Confluence drift in one read-only
+    pass. The recommendation is a nudge, not a hard stop: this skill
+    still runs if the user declines, falling back to the minimal safety
+    pre-flight in Phase 2.
 
 ## Phase 2 — Plan
+
+`analyze-sdd` owns the full coherence analysis; do not re-implement those
+checks here. This phase builds the plan and performs only a **minimal
+safety pre-flight** for the two stops that make implementation impossible
+rather than merely risky.
 
 1. **Build a traceability matrix** in three columns: Requirement → Spec
    scenario(s) → planned test(s). Use the **in-scope scenario set** from
@@ -154,23 +168,25 @@ invent ticket or page content.
      will cover them). Mark those rows as "out of scope for this
      subtask" rather than flagging them as gaps. Every in-scope scenario
      still must map to at least one planned test.
-2. **Flag mismatches** before writing code:
-   - On a **parent** invocation: requirements without a covering
-     in-scope scenario. Surface to the user and ask whether to add
-     scenarios (via `publish-sdd-to-confluence` rerun) or proceed and
-     call this out in the final report.
-   - On a **subtask** invocation: do **not** flag requirements whose
-     scenarios are out of scope; that is the design of the split.
-   - Scenarios marked `# TODO:` in the Specs page **that are in scope**.
-     These are not yet specified; do not invent behaviour for them. Ask
-     whether to park or resolve before implementation.
-   - Open questions that have not been answered. Block on these.
-3. **Detect drift between Jira and Confluence.** If the ticket's
-   description or acceptance criteria contradict the SDD pages on a
-   material point (scope, behaviour, data shape, ownership), name both
-   sides verbatim and ask the user which is canonical. Default
-   recommendation: the SDD pages, because they are the result of the
-   grill and the explicit spec; the ticket may have drifted since.
+2. **Minimal safety pre-flight.** Enforce only the two hard stops that
+   make implementation impossible rather than merely risky, so this skill
+   stays safe even when `analyze-sdd` was skipped:
+   - **Unresolved open questions** bearing on in-scope scenarios. Block
+     until the user answers or explicitly parks them.
+   - **In-scope scenarios marked `# TODO:`** in the Specs page. Their
+     behaviour is not specified; do not invent it. Block until resolved
+     or explicitly parked.
+   Both stop implementation outright. Route the user to
+   `grill-jira-ticket` / `publish-sdd-to-confluence` to resolve.
+3. **Defer the rest of the coherence analysis to `analyze-sdd`.** Orphan
+   (uncovered) requirements, uncited scenarios, dangling `@REQ-<slug>`
+   citations, internal contradictions, near-duplicate scenarios, and
+   Jira ↔ Confluence drift are **not** re-checked here — `analyze-sdd`
+   owns them. If, while building the matrix in step 1, you notice such a
+   defect, do not silently work around it: name it, recommend
+   `/analyze-sdd {WORK_KEY}` for the full report, and let the user decide
+   before you proceed. On a **subtask** invocation, requirements whose
+   only covering scenarios are out of scope are expected, not defects.
 4. **Sketch the implementation.** A short bullet list per requirement:
    which files or modules change, what new ones are added, where the
    tests will live. Match existing project layout; do not refactor

@@ -1,6 +1,6 @@
 {
   "name": "jira-sdd-flow-plugin",
-  "version": "0.12.0",
+  "version": "0.12.2",
   "description": "Spec-Driven Development workflow over Jira and Confluence. Refines vague ideas into detailed specs, generates intent/requirements/spec documentation, and drives implementation.",
   "keywords": ["jira", "confluence", "sdd", "spec-driven"]
 }

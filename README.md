@@ -4,7 +4,9 @@ Claude Code plugin for **Spec-Driven Development (SDD)** over Jira and Confluenc
 
 Refines vague ideas into detailed specs, produces **intent → requirements → spec** documentation in Confluence and linked Jira issues, and drives implementation from the resulting spec.
 
-> Status: scaffold. Skills, commands, agents, hooks, and MCP servers are added incrementally.
+It is inspired by spec-driven development frameworks like [GitHub Spec Kit](https://github.com/github/spec-kit) and [OpenSpec](https://github.com/Fission-AI/OpenSpec) — the idea of treating a written spec as the source of truth that drives implementation, with a lightweight "easy, not complex" lane for changes that don't warrant the full treatment. This plugin adapts that pattern to teams whose specs live in Jira and Confluence.
+
+> Status: the full workflow — refine, publish, split, implement, reconcile, plus a lightweight fast lane — is in place. Components are still added and refined incrementally.
 
 ## What's in the box
 
@@ -59,7 +61,7 @@ Verify it loaded:
 /plugin list
 ```
 
-### 3. Configure environment variables
+### 2. Configure environment variables
 
 The bundled MCP server and every skill in this plugin read connection details
 from environment variables. Run the setup skill to be guided through them:
@@ -75,13 +77,13 @@ Or set the variables manually in your shell rc file before starting Claude Code
 > setup skill will instruct you to set `JIRA_API_TOKEN` out-of-band in your
 > shell or secrets manager.
 
-### 4. Restart Claude Code
+### 3. Restart Claude Code
 
 The MCP server reads environment variables at startup. If Claude Code was
 already running when you set the variables, restart it so the new values take
 effect.
 
-### 5. Verify connectivity
+### 4. Verify connectivity
 
 The setup skill runs a connectivity check automatically (Phase 4). To rerun it
 at any time:
@@ -247,17 +249,60 @@ A ticket built via the lite path can be upgraded later: run
 Confluence SDD landing page exists, so the published Specs stay the single
 source of truth from that point on.
 
-## SDD workflow (target)
+## How the workflow works
 
-The end state this plugin is building toward:
+The plugin breaks spec-driven development into discrete phases, each owned by
+one skill. Every phase reads what the previous one persisted (in Jira or
+Confluence) and writes its own output back, so the trail from idea to shipped
+code is durable and machine-checkable rather than living only in a chat
+session. The [two paths](#two-paths-lightweight-vs-full-sdd) above are just
+two ways of walking these phases — the fast lane stops after **Refine** and
+**Implement**, the full path runs them all.
 
-1. **Refine** — vague Jira ticket or idea → grilled into a sharp problem statement.
-2. **Intent** — captured as a Confluence page linked to the Jira parent.
-3. **Requirements** — derived from intent, written back to Jira + Confluence.
-4. **Spec** — technical design with acceptance criteria, attached to the ticket.
-5. **Implement** — branch + MR driven from the spec, with traceability back to each requirement.
+1. **Refine** (`grill-jira-ticket`). Interrogates a vague ticket — or a
+   free-form idea, which it can turn into a new ticket — one question at a
+   time until the decisions, tradeoffs, and failure modes are explicit. It
+   writes the resolved understanding back into the ticket description,
+   including a testable **Acceptance criteria** section, and reconciles any
+   contradictions it surfaced in the parent or sibling tickets. This is the
+   shared entry point for both paths.
 
-Each phase will land as its own skill/command/agent. This README tracks which pieces exist as they are added.
+2. **Publish** (`publish-sdd-to-confluence`, full path only). Promotes the
+   grilled ticket into a four-page Confluence spec set: a landing page plus
+   **Intent**, **Requirements** (each led by a stable `REQ-<slug>` ID), and
+   **Specs** (exhaustive Gherkin scenarios, each tagged `@SCN-NNN` and citing
+   the requirements it satisfies with `@REQ-<slug>` tags). A remote link back
+   to the landing page is added to the Jira ticket. The `REQ ↔ @REQ ↔ @SCN`
+   tagging is what makes the requirement→scenario→test chain checkable later.
+
+3. **Split** (`create-subtasks`, full path, optional). Divides the published
+   parent into Jira subtasks where each one ships a working increment for a
+   real consumer. Each subtask claims a subset of the parent's `@SCN-NNN`
+   scenarios under a `## Covers scenarios` heading; every scenario must be
+   claimed by at least one subtask.
+
+4. **Implement.** Two skills, one per path:
+   - `implement-sdd-spec` (full path) builds from the published **Specs**,
+     implementing every in-scope `@SCN-NNN` scenario (the whole Specs page on
+     a parent, or just the claimed subset on a subtask), and tags each test
+     `SDD: <KEY> @SCN-NNN` so coverage is greppable.
+   - `implement-lite` (fast lane) builds straight from the ticket's inline
+     **Acceptance criteria**, numbering them `AC-1`, `AC-2`, … and tagging
+     each test `SDD-LITE: <KEY> AC-N`. No Confluence, no subtasks.
+
+   Both discover the host project's language and test framework, plan before
+   touching code, write one passing test per in-scope item, and report a
+   coverage matrix back to the ticket as a comment.
+
+5. **Reconcile** (`reconcile-sdd`, full path only). After the ticket and all
+   its subtasks are resolved, treats the as-built tests as authoritative and
+   proposes targeted edits so the Intent / Requirements / Specs pages reflect
+   what was actually shipped. It verifies the `REQ → @SCN → test` chain is
+   intact and can propagate corrected scenarios to sibling SDDs. The fast
+   lane skips this phase by design — there are no pages to reconcile.
+
+Before any of this, run `setup-jira-sdd-environment` once to configure and
+verify the connection (see [Installation](#2-configure-environment-variables)).
 
 ## Design principles
 
@@ -268,4 +313,5 @@ Each phase will land as its own skill/command/agent. This README tracks which pi
 
 ## Credits
 
+- **Spec-driven development approach** is inspired by [GitHub Spec Kit](https://github.com/github/spec-kit) and [OpenSpec](https://github.com/Fission-AI/OpenSpec), including OpenSpec's "easy, not complex" stance that motivates the lightweight path. This plugin adapts the spec-as-source-of-truth pattern to a Jira + Confluence workflow.
 - **`grill-jira-ticket`** is a Jira-aware adaptation of the `grill-me` skill by [Matt Pocock](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md). The decision-tree interview pattern, one-question-per-turn cadence, and recommended-answer format come from his original.

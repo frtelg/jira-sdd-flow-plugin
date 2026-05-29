@@ -10,6 +10,12 @@ A **Claude Code plugin** (`jira-sdd-flow-plugin`) for Spec-Driven Development ov
 
 The plugin manifest lives at `.claude-plugin/plugin.json`. Bump `version` (semver) on user-visible changes.
 
+The same version string is duplicated in `.claude-plugin/marketplace.json` (the `plugins[].version` field). The two must always match — bump both in the same change, or the marketplace advertises a different version than the plugin installs. After bumping, confirm they agree:
+
+```bash
+grep -h '"version"' .claude-plugin/plugin.json .claude-plugin/marketplace.json
+```
+
 Component directories are loaded by Claude Code based on convention:
 
 - `skills/<name>/SKILL.md` — model-invoked behaviours. Frontmatter `name` and `description` are mandatory; `description` is what the model matches against to decide whether to activate the skill, so be precise about trigger conditions.
@@ -22,7 +28,7 @@ Empty component dirs are kept with `.gitkeep`. Delete the marker when the first 
 
 ## Editing JSON files
 
-`.claude-plugin/plugin.json`, `hooks/hooks.json`, and `.mcp.json` are loaded by Claude Code at plugin activation. A syntax error breaks the whole plugin. After editing any of them, validate:
+`.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `hooks/hooks.json`, and `.mcp.json` are loaded by Claude Code at plugin activation. A syntax error breaks the whole plugin. After editing any of them, validate:
 
 ```bash
 python3 -m json.tool < <file>

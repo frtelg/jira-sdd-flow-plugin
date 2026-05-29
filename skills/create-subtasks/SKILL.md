@@ -214,8 +214,10 @@ For each proposed subtask, draft:
   Specs page that this subtask is responsible for. Overlap with other
   subtasks is allowed when the same user-visible behaviour is
   exercised at multiple layers (e.g. a backend contract test and a
-  frontend end-to-end test both cover the same scenario). Each bullet
-  uses the format `- @SCN-NNN — <scenario title>`.
+  frontend end-to-end test both cover the same scenario). In the written
+  subtask description each bullet uses the Jira wiki format
+  `* @SCN-NNN — <scenario title>` (see Formatting rules for Jira
+  descriptions in Phase 4).
 - **Target.** Where this subtask lands: repo name, service name, or
   project key. Optional but recommended when multiple targets exist.
 
@@ -243,34 +245,74 @@ For each approved subtask, in order:
    - **Project:** same project as the parent unless the user
      specified a different target project in the draft.
    - **Summary:** the title from Phase 3.
-   - **Description:** the structured body below.
+   - **Description:** the structured body below, in Jira wiki markup
+     (see Formatting rules for Jira descriptions below — these are Jira
+     descriptions, so they must not be authored as Markdown).
 2. The subtask description has exactly these sections, in this order:
 
-   ```markdown
-   ## Intent
+   ```
+   h2. Intent
 
    <one-paragraph intent>
 
-   ## Working increment
+   h2. Working increment
 
    <one-sentence consumer statement>
 
-   ## Covers scenarios
+   h2. Covers scenarios
 
-   See parent SDD Specs page: <link to ${CONFLUENCE_BASE_URL}/.../Specs>
+   See parent SDD Specs page: [<Specs page title>|${CONFLUENCE_BASE_URL}/.../Specs]
 
-   - @SCN-NNN — <scenario title>
-   - @SCN-NNN — <scenario title>
+   * @SCN-NNN — <scenario title>
+   * @SCN-NNN — <scenario title>
    ```
 
    The link to the Specs page is mandatory so `implement-sdd-spec` can
-   resolve scenarios from the subtask without re-deriving them.
+   resolve scenarios from the subtask without re-deriving them. The
+   `h2. Covers scenarios` heading reads back from the Atlassian MCP as
+   `## Covers scenarios`, which is the literal string the inventory step
+   (Phase 1.5) and `implement-sdd-spec` look for — do not rename it.
 3. Capture the returned subtask key and URL.
 
 If any create fails, surface the error verbatim and stop. Do not retry
 destructively, and do not delete any subtasks that were already
 created — the user can re-run the skill on the parent to fill in the
 rest after fixing the underlying issue.
+
+### Formatting rules for Jira descriptions
+
+Subtask descriptions written by this skill must use Jira wiki markup
+syntax, NOT Markdown. The Atlassian MCP server converts Markdown to wiki,
+but the conversion is lossy for content that contains curly braces inside
+code spans or nested bullet lists. To keep descriptions readable after
+round-trip:
+
+- Headings: `h2.`, `h3.` (not `##` `###`).
+- Bold: `*text*` (not `**text**`).
+- Italic: `_text_`.
+- Inline monospace: `{{token}}` — and the token must NOT contain `{` or
+  `}`. There is no working escape; backslash escapes get doubled by the
+  converter.
+- For path templates with placeholders: use `:placeholderName` style
+  instead of curly braces, e.g.
+  `/api/v1/campaigns/:campaignId/items/:itemId/open`. Italicise the
+  whole path.
+- For literal angle-bracket placeholders in file paths (e.g. directory
+  templates): use `&lt;LSO&gt;` HTML entities.
+- Bulleted lists: single level only. Do not use nested bullets — the MCP
+  layer inserts blank lines between adjacent bullet lines, which Jira
+  treats as a list terminator. The `## Covers scenarios` list is a flat
+  list of `* @SCN-NNN` bullets; if you need to add context to a bullet,
+  put it on the same line with an italic marker like `_Why:_` rather than
+  a sub-bullet.
+- Code blocks: `{code}...{code}` for multi-line snippets that
+  legitimately need braces. These are block-level and disable wiki
+  parsing inside.
+
+Confluence writes are NOT affected by this — the Confluence MCP accepts
+markdown directly via `content_format: 'markdown'` and the conversion is
+clean. The rule above is Jira-only. This skill does not write Confluence
+pages; the rule governs the subtask descriptions it creates in Jira.
 
 ## Phase 5 — Report
 

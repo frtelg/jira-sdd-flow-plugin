@@ -71,6 +71,47 @@ user and offer two options: run `/setup-jira-sdd-environment` to fix the
 env, or set the offending variable directly themselves. Do not retry
 blindly and do not invent page or ticket content.
 
+## Formatting rules for Jira descriptions
+
+This skill writes to two surfaces. The Confluence pages it edits (Intent /
+Requirements / Specs, and sibling Specs) are the clean case: keep
+authoring them in Markdown via `content_format: 'markdown'` — the
+Confluence MCP converts that faithfully, so curly braces in code spans and
+bullet lists survive.
+
+The Jira writes this skill performs are **comments** (the sibling-ticket
+comment in Phase 7 and the parent comment in Phase 8). The same rules that
+govern Jira descriptions govern these comments, because the Atlassian MCP
+converts Markdown to wiki lossily for content with curly braces inside
+code spans or nested bullet lists — and these comments are full of
+`@SCN-NNN`, `@REQ-<slug>`, and file-path tokens. Author the comment body
+in Jira wiki markup, NOT Markdown:
+
+- Headings: `h2.`, `h3.` (not `##` `###`).
+- Bold: `*text*` (not `**text**`).
+- Italic: `_text_`.
+- Inline monospace: `{{token}}` — and the token must NOT contain `{` or
+  `}`. There is no working escape; backslash escapes get doubled by the
+  converter. Wrap tokens like `{{@SCN-001}}`, `{{@REQ-cancel-window}}`,
+  and tag lines such as `{{SDD: PARENT-123 @SCN-001}}` this way.
+- For path templates with placeholders: use `:placeholderName` style
+  instead of curly braces, e.g.
+  `/api/v1/campaigns/:campaignId/items/:itemId/open`. Italicise the
+  whole path.
+- For literal angle-bracket placeholders in file paths (e.g. directory
+  templates): use `&lt;LSO&gt;` HTML entities.
+- Bulleted lists: single level only. Do not use nested bullets — the MCP
+  layer inserts blank lines between adjacent bullet lines, which Jira
+  treats as a list terminator. If you need sub-items (e.g. a scenario and
+  what changed), put them on the same bullet line with an italic marker
+  like `_Why:_` separating the parts.
+- Code blocks: `{code}...{code}` for multi-line snippets that
+  legitimately need braces. These are block-level and disable wiki
+  parsing inside.
+
+So Confluence writes stay in Markdown via `content_format: 'markdown'`;
+the wiki rules above apply only to the Jira comments this skill posts.
+
 ## Phase 1 — Verify readiness
 
 1. **Resolve the work key.** Fetch the ticket. If it is a subtask, set

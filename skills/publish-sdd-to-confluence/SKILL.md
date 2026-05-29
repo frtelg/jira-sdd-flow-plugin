@@ -147,15 +147,36 @@ re-publishes.
 
 - Title: `[KEY] Requirements`
 - Body: a single bulleted list. Each bullet is one requirement, phrased
-  as a testable statement of need. Group with H2 sub-headings only if
-  the list is long enough to need grouping (>10 items).
+  as a testable statement of need, led by a stable `REQ-<slug>` ID.
+  Group with H2 sub-headings only if the list is long enough to need
+  grouping (>10 items).
 - Pull from the grilled Decisions and Acceptance criteria. Each
   requirement must trace back to at least one of those — if you find a
   decision that does not map to a requirement, flag it to the user
   rather than dropping it.
-- Do not number requirements; the list ordering is not stable enough to
-  reference by number. If stable IDs are needed, use a leading tag like
-  `REQ-<short-slug>:` per bullet.
+- **Every requirement must carry a stable ID tag** of the form
+  `REQ-<slug>`, where `<slug>` is a short lowercase kebab-case phrase
+  naming the requirement's core need (e.g. `REQ-cancel-window`,
+  `REQ-refund-eligibility`). The bullet format is
+  `- REQ-<slug> — <testable statement>`. These IDs are the requirement
+  end of the requirement↔scenario contract: scenarios cite them with
+  `@REQ-<slug>` tags on the Specs page (see 2d), which is what lets
+  `reconcile-sdd` verify the full intent→requirement→scenario→test
+  chain mechanically rather than re-deriving it from prose.
+- Slug stability rules (mirror the `@SCN-NNN` lifecycle):
+  - **First publish.** Assign each requirement a slug in declaration
+    order. Keep slugs short and distinct; if two requirements would
+    collide on a slug, disambiguate with a trailing number
+    (`REQ-refund-1`, `REQ-refund-2`).
+  - **Re-publish.** Preserve every existing `REQ-<slug>` verbatim for
+    any requirement that is still present, **even if its wording
+    changed**. The slug is an identity, not a summary — do not
+    regenerate it from new wording. Give a genuinely new requirement a
+    new slug. Do not reuse the slug of a removed requirement; it is
+    retired so old `@REQ-<slug>` citations resolve to "no longer a
+    requirement" rather than to an unrelated one. If the slug plan
+    would touch any existing slug, surface it to the user and ask
+    before publishing.
 
 ### 2d. Specs page (Gherkin)
 
@@ -179,6 +200,26 @@ re-publishes.
     references still resolve to "no longer in spec" rather than to
     an unrelated scenario. If the renumbering plan would touch any
     existing ID, surface it to the user and ask before publishing.
+- **Every `Scenario:` must cite at least one requirement** with one or
+  more `@REQ-<slug>` tags drawn from the Requirements page (2c). Stack
+  them on the same tag line as the scenario's `@SCN-NNN`, in the order
+  the requirements appear on the Requirements page. Example:
+
+  ```gherkin
+  @SCN-012 @REQ-cancel-window @REQ-grace-period
+  Scenario: Participant cancels inside the grace window
+  ```
+
+  The `@REQ-<slug>` citation is what turns "every scenario satisfies a
+  stated requirement" into a mechanical check. A scenario that
+  legitimately satisfies no stated requirement signals that either a
+  requirement is missing or the scenario is out of scope — surface it
+  to the user and either add the `@REQ-<slug>` citation (adding the
+  requirement to 2c if it is genuinely missing) or confirm with the
+  user before publishing a scenario with no citation. Likewise, before
+  publishing, check the reverse direction: every `REQ-<slug>` on the
+  Requirements page must be cited by at least one scenario (a
+  requirement with no scenario is handled by the stub rule below).
 - Each scenario must be:
   - **Exhaustive** — cover the happy path, the named edge cases from the
     grilled ticket, and the error paths surfaced during the grill.
@@ -190,7 +231,10 @@ re-publishes.
 - If a requirement has no corresponding scenario, flag it to the user
   and add a `Scenario:` stub with a `# TODO: ...` comment naming the
   gap. The stub still gets its own `@SCN-NNN` tag so a subtask can
-  claim it once the gap is closed.
+  claim it once the gap is closed, and it must cite the orphaned
+  requirement with that requirement's `@REQ-<slug>` tag — so "every
+  requirement is cited by at least one scenario" stays mechanically
+  true even while the gap is open.
 - If the grilled ticket has **Open questions**, list them under a final
   H2 `## Open questions` on this page rather than inside the Gherkin
   block, so they don't get mistaken for unimplemented specs.

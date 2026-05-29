@@ -5,7 +5,10 @@ description: >
   ticket and all its subtasks are resolved. Diffs the as-built test
   cases against the parent's Confluence SDD pages, treats the tests as
   authoritative, and proposes targeted edits so the Intent /
-  Requirements / Specs pages reflect what was actually built. Then,
+  Requirements / Specs pages reflect what was actually built. Also
+  verifies the requirement→scenario→test chain is intact by joining
+  `REQ-<slug>` IDs to their `@REQ-<slug>` citations and `@SCN-NNN`
+  tags, flagging uncovered requirements and uncited scenarios. Then,
   optionally, lets the user pick sibling SDD landing pages under the
   configured SDD root and reconciles those siblings' Specs against the
   newly-canonical as-built scenarios, with per-page approval and a
@@ -25,8 +28,9 @@ contradict sibling SDD pages in the same root space.
 This skill assumes upstream work has finished:
 
 - The ticket was grilled (`grill-jira-ticket`).
-- The SDD was published (`publish-sdd-to-confluence`), so the Specs
-  page has `@SCN-NNN` tags.
+- The SDD was published (`publish-sdd-to-confluence`), so the
+  Requirements page has `REQ-<slug>` IDs and the Specs page has
+  `@SCN-NNN` tags with `@REQ-<slug>` citations alongside them.
 - Optionally split into subtasks (`create-subtasks`).
 - The change was implemented (`implement-sdd-spec`), which posted a
   per-ticket coverage-matrix comment mapping `@SCN-NNN` → test path.
@@ -84,9 +88,12 @@ blindly and do not invent page or ticket content.
 5. **Fetch the SDD set.** Get `[PARENT_KEY] Intent`,
    `[PARENT_KEY] Requirements`, and `[PARENT_KEY] Specs` from under
    the landing page. Refuse if any of the three is missing or empty.
-6. **Parse the Specs page.** Extract every `@SCN-NNN` tag and the
-   Gherkin Given/When/Then beneath it. Note any scenario with a
-   `# TODO:` comment.
+   From the Requirements page, extract the full set of `REQ-<slug>`
+   IDs (the leading tag on each bullet).
+6. **Parse the Specs page.** Extract every `@SCN-NNN` tag, the
+   `@REQ-<slug>` citation tags stacked alongside it, and the Gherkin
+   Given/When/Then beneath it. Note any scenario with a `# TODO:`
+   comment.
 7. **Discover the host project.** Same as `implement-sdd-spec`:
    language, runtime, test framework, test command, test layout. If
    the project's test setup cannot be determined, ask the user once.
@@ -156,11 +163,34 @@ test, and it does not run the tests. Its only job here is detecting
      the report; do not auto-edit and do not try to derive coverage
      from semantic similarity. Recommend re-running
      `implement-sdd-spec` if this is a real gap.
-5. **Check Requirements and Intent for contradictions.** A bullet on
-   the Requirements page that asserts behaviour contradicting an
-   Aligned/Drift scenario is itself drift. A statement in the Intent's
-   "What is changing" section that contradicts the as-built scenarios
-   is drift. Build a list of suspect lines; do not edit yet.
+5. **Verify the requirement↔scenario chain, then check for
+   contradictions.** Two passes:
+   - *Mechanical link check (the closed traceability chain).* Join the
+     `REQ-<slug>` IDs from the Requirements page to the `@REQ-<slug>`
+     citation tags parsed from the Specs page. Report three link
+     defects:
+     - **Uncovered requirement.** A `REQ-<slug>` that no scenario
+       cites. The requirement→scenario link is broken, so the chain
+       cannot reach a test for it. Flag it; do not auto-edit.
+     - **Uncited scenario.** A `@SCN-NNN` scenario carrying no
+       `@REQ-<slug>` tag. The scenario satisfies no stated
+       requirement; either a requirement is missing or the scenario is
+       out of scope. Flag it; do not auto-edit.
+     - **Dangling citation.** A `@REQ-<slug>` tag on the Specs page
+       whose slug is not on the Requirements page (retired or
+       mistyped). Flag it; do not auto-edit.
+     Because the link is an explicit tag rather than prose, this check
+     is mechanical: it does not re-derive the mapping by reading
+     requirement and scenario wording. Combined with the scenario→test
+     tags from Phase 2 step 1, this closes the full
+     intent→requirement→scenario→test chain instead of verifying only
+     the scenario→test tail.
+   - *Semantic contradiction check (as before).* A bullet on the
+     Requirements page that asserts behaviour contradicting an
+     Aligned/Drift scenario is itself drift. A statement in the
+     Intent's "What is changing" section that contradicts the as-built
+     scenarios is drift. Build a list of suspect lines; do not edit
+     yet.
 6. **Report orphan tags.** Any `SDD: <PARENT_KEY> @SCN-NNN` tag
    pointing at an ID that no longer exists on the Specs page is
    reported as drift. Recommended actions are: (a) re-tag to the new
@@ -176,6 +206,9 @@ Show the user a single reconciliation summary:
 - Counts by classification (Aligned / Drift / TODO with impl /
   TODO still TODO / Untagged-but-legacy / Missing).
 - Count of orphan tags found in the test tree.
+- Chain integrity: counts of uncovered requirements, uncited
+  scenarios, and dangling `@REQ-<slug>` citations from the Phase 2
+  link check, with the offending IDs listed.
 - A per-scenario table for everything not Aligned.
 - A list of suspect Requirements / Intent lines.
 
@@ -209,6 +242,13 @@ this skill. Recommended options for the user are:
 For **orphan tags**, do not draft an auto-fix. Surface the list and
 let the user decide per tag in Phase 4 whether to re-tag, delete the
 test, or annotate it as retired.
+
+For **chain link defects** (uncovered requirements, uncited scenarios,
+dangling `@REQ-<slug>` citations), do not draft an auto-fix. The
+requirement↔scenario link is authored by `publish-sdd-to-confluence`;
+surface each defect and recommend re-running it to add the missing
+`@REQ-<slug>` citation, add or retire the requirement, or correct the
+slug. Park explicitly with a comment if the gap is intentional.
 
 ## Phase 4 — Apply current-page updates (and tag retrofits)
 
@@ -301,21 +341,26 @@ posting the explanatory Jira comment, and never the other way round.
    - Counts by classification from Phase 2 (Aligned / Drift / TODO
      with impl / TODO still TODO / Untagged-but-legacy / Missing) plus
      orphan-tag count.
+   - Chain integrity counts: uncovered requirements, uncited
+     scenarios, and dangling `@REQ-<slug>` citations.
    - Pages updated on the current ticket (titles + URLs).
    - Tag retrofits applied to legacy tests (file paths only).
    - Siblings updated (ticket keys + page URLs) and siblings the user
      declined or skipped.
    - Gaps that were not fixed: TODO-still-TODO scenarios, Missing
-     scenarios, and orphan tags. List each explicitly so the user can
-     follow up.
+     scenarios, orphan tags, and chain link defects (uncovered
+     requirements, uncited scenarios, dangling `@REQ-<slug>`
+     citations). List each explicitly so the user can follow up.
    - The line: "SDD reconciled on {ISO-8601 date}. Tests are the
      source of truth at reconcile-time."
 2. Return a short chat summary: pages updated, tags retrofitted,
    siblings updated, gaps outstanding.
-3. If nothing drifted — every scenario Aligned, no orphan tags, no
-   sibling changes, no retrofits — the report is a clean no-op:
-   "All aligned, no reconciliation needed." Do not post a parent
-   comment in that case; there is nothing to record.
+3. If nothing drifted — every scenario Aligned, the requirement↔scenario
+   chain intact (no uncovered requirements, uncited scenarios, or
+   dangling citations), no orphan tags, no sibling changes, no
+   retrofits — the report is a clean no-op: "All aligned, no
+   reconciliation needed." Do not post a parent comment in that case;
+   there is nothing to record.
 
 ## Hard rules
 
@@ -343,6 +388,12 @@ posting the explanatory Jira comment, and never the other way round.
 - The skill never invents `@SCN-NNN` IDs and never changes the IDs of
   scenarios it edits. ID stability is the contract that lets future
   reconciliations resolve.
+- The skill never invents `REQ-<slug>` IDs, never edits the
+  requirement↔scenario link, and never adds or removes `@REQ-<slug>`
+  citations. That link is authored by `publish-sdd-to-confluence`; this
+  skill only verifies it mechanically and reports defects (uncovered
+  requirements, uncited scenarios, dangling citations) for the user to
+  resolve by re-running publish.
 - The skill never touches the **grill log** section of any Jira
   description. The grill record is historical and not subject to
   as-built drift.

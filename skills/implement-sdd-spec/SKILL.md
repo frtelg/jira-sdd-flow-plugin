@@ -106,8 +106,9 @@ invent ticket or page content.
    code.
 6. **Parse the Specs page.** Extract every `Feature:` and `Scenario:` block
    from fenced ```gherkin``` code blocks. For each scenario, capture its
-   `@SCN-NNN` tag if present. Note any scenario that contains a
-   `# TODO:` comment — those are explicit gaps the spec author left.
+   `@SCN-NNN` tag and any `@REQ-<slug>` citation tags stacked alongside
+   it. Note any scenario that contains a `# TODO:` comment — those are
+   explicit gaps the spec author left.
 7. **Determine the in-scope scenario set.**
    - For a **parent** invocation: every scenario on the Specs page is in
      scope.
@@ -140,6 +141,11 @@ invent ticket or page content.
 1. **Build a traceability matrix** in three columns: Requirement → Spec
    scenario(s) → planned test(s). Use the **in-scope scenario set** from
    Phase 1 step 7 — not necessarily every scenario on the Specs page.
+   Derive the Requirement → scenario column from the `@REQ-<slug>`
+   citation tags on the Specs page (joined to the `REQ-<slug>` IDs on
+   the Requirements page) rather than re-deriving the mapping from
+   prose. Fall back to reading the wording only when a Specs page
+   predates `@REQ-<slug>` citations and carries none.
    - For a **parent** invocation: every requirement must map to at least
      one in-scope scenario, and every in-scope scenario must map to at
      least one planned test.

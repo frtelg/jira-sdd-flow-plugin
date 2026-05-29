@@ -348,6 +348,18 @@ When every in-scope scenario has a passing test:
    fails (MCP error, missing field), drop the hint silently rather
    than guessing.
 
+### Formatting rules for the Jira comment
+
+Compose the Phase 5 comment in **pure standard Markdown**. The Atlassian
+MCP converts Markdown to Jira wiki markup, which Jira renders correctly
+only when the input is clean Markdown. Do not mix in wiki syntax (`h2.`,
+`{{...}}`, `*bold*` where Markdown bold is meant); wiki tokens render as
+literal text in the Jira UI. Use `**bold**` for bold, `` `inline code` ``
+for monospace (scenario IDs like `@SCN-NNN` and test paths sit fine inside
+backticks), `-` or `*` for bullets with 2-space indentation for nesting, a
+Markdown table for the coverage matrix, standard `[text](url)` links, and
+triple-backtick fences for any code block.
+
 ## Hard rules
 
 - No code change happens without an explicit user confirmation on the

@@ -197,6 +197,30 @@ of mode. Suggested structure (adapt to the issue type):
 - **Grill log** — short note: "Captured from grill session on
   {ISO-8601 date}."
 
+### Formatting rules for Jira writes
+
+Every description and comment this phase writes through the Atlassian MCP
+(the 4a/4b descriptions and the 4c reconcile comments) must be composed in
+**pure standard Markdown**. The MCP converts Markdown to Jira wiki markup,
+which Jira renders correctly — but only when the input is clean Markdown.
+Mixing in wiki syntax (`h2.`, `{{...}}`, `_emphasis_` where Markdown bold
+is meant, and so on) produces malformed wiki that renders as literal text
+in the Jira UI.
+
+Use:
+
+- `##` / `###` for headings (not `h2.` / `h3.`)
+- `**bold**` for bold (not `*bold*`, which is italic in Markdown)
+- `*italic*` or `_italic_` for italic
+- `` `inline code` `` for monospace (not `{{...}}`)
+- `-` or `*` for bullets, with 2-space indentation for nesting
+- triple-backtick fences for code blocks
+- standard Markdown links `[text](url)`
+
+When you show the new description (or a diff) to the user for approval,
+render it as Markdown — not as wiki — so the preview matches exactly what
+gets written.
+
 What happens next depends on whether a ticket key was provided.
 
 ### 4a. Existing-ticket mode (a ticket key was given)

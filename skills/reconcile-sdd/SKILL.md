@@ -71,6 +71,20 @@ user and offer two options: run `/setup-jira-sdd-environment` to fix the
 env, or set the offending variable directly themselves. Do not retry
 blindly and do not invent page or ticket content.
 
+## Formatting rules for Jira comments
+
+Every Jira comment this skill posts — the per-sibling comment in Phase 7
+and the parent summary comment in Phase 8 — must be composed in **pure
+standard Markdown**. The Atlassian MCP converts Markdown to Jira wiki
+markup, which Jira renders correctly only when the input is clean Markdown.
+Do not mix in wiki syntax (`h2.`, `{{...}}`, `*bold*` where Markdown bold
+is meant); wiki tokens in the input render as literal text in the Jira UI.
+Use `**bold**` for bold, `*italic*` or `_italic_` for italic,
+`` `inline code` `` for monospace (a `@SCN-NNN` or `@REQ-<slug>` tag sits
+fine inside backticks), `-` bullets with 2-space indentation for nesting,
+and standard `[text](url)` links. The Confluence Specs pages this skill
+edits go through the Confluence MCP and are unaffected by this rule.
+
 ## Phase 1 — Verify readiness
 
 1. **Resolve the work key.** Fetch the ticket. If it is a subtask, set

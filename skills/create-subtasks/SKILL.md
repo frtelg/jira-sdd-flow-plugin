@@ -267,6 +267,20 @@ For each approved subtask, in order:
    resolve scenarios from the subtask without re-deriving them.
 3. Capture the returned subtask key and URL.
 
+### Formatting rules for Jira writes
+
+Compose every subtask description (the step 2 body) in **pure standard
+Markdown**. The Atlassian MCP converts Markdown to Jira wiki markup, which
+Jira renders correctly — but only when the input is clean Markdown. Do not
+mix in wiki syntax (`h2.`, `{{...}}`, `*bold*` for bold); wiki tokens in
+the input render as literal text in the Jira UI. The `## Intent`,
+`## Working increment`, and `## Covers scenarios` headings are Markdown
+`##` headings, the scenario claims are `-` bullets, and the Specs link is a
+standard `[text](url)` link. Use `` `inline code` `` for monospace (an
+`@SCN-NNN` tag sits fine inside backticks). When you show the drafts in
+Phase 3 for approval, render them as Markdown so the preview matches what
+gets written.
+
 If any create fails, surface the error verbatim and stop. Do not retry
 destructively, and do not delete any subtasks that were already
 created — the user can re-run the skill on the parent to fill in the

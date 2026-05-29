@@ -264,6 +264,18 @@ drafts. Confluence writes happen in this exact order:
    implementation, complementing the `Source ticket:` header line that
    every Confluence page already carries (Confluence → Jira direction).
 
+### Formatting rules for Jira writes
+
+The four Confluence pages above are written through the Confluence MCP with
+a Markdown content format and render correctly as drafted — they are not
+affected by this rule. The one Jira-side write in this skill is the remote
+issue link in step 6. Its title (`SDD: <change name>`) is plain text, but
+any Jira description or comment field written through the Atlassian MCP must
+be composed in **pure standard Markdown**, never Jira wiki syntax (`h2.`,
+`{{...}}`, `*bold*` where Markdown bold is meant). The MCP converts clean
+Markdown to valid wiki; wiki tokens in the input render as literal text in
+the Jira UI.
+
 After each MCP write, show the user the result (page title + URL or
 ticket key + link). If any write fails, surface the error verbatim and
 stop — do not continue with subsequent steps and do not retry with

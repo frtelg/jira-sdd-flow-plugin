@@ -220,6 +220,17 @@ When every criterion has a passing test:
    full SDD path by running `/publish-sdd-to-confluence {KEY}` and then
    `/implement-sdd-spec`. Offer it; do not do it automatically.
 
+### Formatting rules for the Jira comment
+
+Compose the Phase 5 comment in **pure standard Markdown**. The Atlassian
+MCP converts Markdown to Jira wiki markup, which Jira renders correctly
+only when the input is clean Markdown. Do not mix in wiki syntax (`h2.`,
+`{{...}}`, `*bold*` where Markdown bold is meant); wiki tokens render as
+literal text in the Jira UI. Use `**bold**` for bold, `` `inline code` ``
+for monospace (`AC-N` tags and test paths sit fine inside backticks), `-`
+bullets with 2-space indentation for nesting, a Markdown table for the
+coverage table, and standard `[text](url)` links.
+
 ## Hard rules
 
 - No code change happens without an explicit user confirmation on the plan

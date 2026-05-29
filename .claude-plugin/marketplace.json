@@ -11,7 +11,7 @@
         "repo": "frtelg/jira-sdd-flow-plugin"
       },
       "description": "Spec-Driven Development workflow over Jira and Confluence. Refines vague ideas into detailed specs, generates intent/requirements/spec documentation, and drives implementation.",
-      "version": "0.12.2"
+      "version": "0.12.3"
     }
   ]
 }

@@ -79,49 +79,6 @@ Requirements → Specs. Re-show any draft that changes downstream of an
 edit (e.g. if the user reframes Intent, regenerate Requirements and
 Specs to match).
 
-### Formatting rules for Jira descriptions
-
-All four pages this skill drafts are **Confluence** pages, and Confluence
-is the clean case: author them in Markdown and create them with
-`content_format: 'markdown'`. The Confluence MCP converts that Markdown
-faithfully — curly braces inside code spans and nested bullet lists
-survive the round-trip, so none of the Jira restrictions below apply to
-the four spec pages.
-
-The only Jira write this skill performs is the remote issue link in
-Phase 3 step 6, which carries a title and a URL but no description body —
-so today there is nothing here that needs Jira wiki markup. The rule
-below exists for the moment this skill ever writes a Jira **description**
-(its own or via reconciliation): in that case the description must use
-Jira wiki markup syntax, NOT Markdown, because the Atlassian MCP converts
-Markdown to wiki lossily for content with curly braces inside code spans
-or nested bullet lists:
-
-- Headings: `h2.`, `h3.` (not `##` `###`).
-- Bold: `*text*` (not `**text**`).
-- Italic: `_text_`.
-- Inline monospace: `{{token}}` — and the token must NOT contain `{` or
-  `}`. There is no working escape; backslash escapes get doubled by the
-  converter.
-- For path templates with placeholders: use `:placeholderName` style
-  instead of curly braces, e.g.
-  `/api/v1/campaigns/:campaignId/items/:itemId/open`. Italicise the
-  whole path.
-- For literal angle-bracket placeholders in file paths (e.g. directory
-  templates): use `&lt;LSO&gt;` HTML entities.
-- Bulleted lists: single level only. Do not use nested bullets — the MCP
-  layer inserts blank lines between adjacent bullet lines, which Jira
-  treats as a list terminator. If you need sub-items, put them on the
-  same bullet line with an italic marker like `_Why:_` separating the
-  parts.
-- Code blocks: `{code}...{code}` for multi-line snippets that
-  legitimately need braces. These are block-level and disable wiki
-  parsing inside.
-
-To restate the split: Confluence writes (the four spec pages) stay in
-Markdown via `content_format: 'markdown'`; the wiki rules above are
-Jira-only.
-
 ### Title prefix rule (all four pages)
 
 Confluence Cloud requires page titles to be unique within a space.

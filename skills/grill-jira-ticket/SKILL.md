@@ -197,47 +197,6 @@ of mode. Suggested structure (adapt to the issue type):
 - **Grill log** — short note: "Captured from grill session on
   {ISO-8601 date}."
 
-### Formatting rules for Jira descriptions
-
-These rules apply to every Jira description this skill writes — the target
-ticket in 4a and the new ticket in 4b alike.
-
-Jira descriptions written by this skill must use Jira wiki markup syntax,
-NOT Markdown. The Atlassian MCP server converts Markdown to wiki, but the
-conversion is lossy for content that contains curly braces inside code
-spans or nested bullet lists. To keep descriptions readable after
-round-trip:
-
-- Headings: `h2.`, `h3.` (not `##` `###`).
-- Bold: `*text*` (not `**text**`).
-- Italic: `_text_`.
-- Inline monospace: `{{token}}` — and the token must NOT contain `{` or
-  `}`. There is no working escape; backslash escapes get doubled by the
-  converter.
-- For path templates with placeholders: use `:placeholderName` style
-  instead of curly braces, e.g.
-  `/api/v1/campaigns/:campaignId/items/:itemId/open`. Italicise the
-  whole path.
-- For literal angle-bracket placeholders in file paths (e.g. directory
-  templates): use `&lt;LSO&gt;` HTML entities.
-- Bulleted lists: single level only. Do not use nested bullets — the MCP
-  layer inserts blank lines between adjacent bullet lines, which Jira
-  treats as a list terminator. If you need sub-items (e.g. a decision and
-  its rationale), put them on the same bullet line with an italic marker
-  like `_Why:_` separating the parts.
-- Code blocks: `{code}...{code}` for multi-line snippets that
-  legitimately need braces. These are block-level and disable wiki
-  parsing inside.
-
-So the **Decisions** list above is a single-level bulleted list where each
-bullet carries the decision and its one-line rationale on the same line,
-separated by an italic `_Why:_` marker — not a decision bullet with a
-nested rationale sub-bullet.
-
-Confluence writes are NOT affected by this — the Confluence MCP accepts
-markdown directly via `content_format: 'markdown'` and the conversion is
-clean. The rule above is Jira-only.
-
 What happens next depends on whether a ticket key was provided.
 
 ### 4a. Existing-ticket mode (a ticket key was given)
@@ -248,14 +207,8 @@ What happens next depends on whether a ticket key was provided.
    unless the user explicitly asked you to consolidate them; in that case,
    update both consistently.
 3. Show the user the new description as a diff (or as the new text alongside
-   the old) before calling the Jira update tool. The preview must be the
-   literal wiki markup the skill will actually write — the user should see
-   `h2.`, `*bold*`, `{{monospace}}`, and single-level `*` bullets, not
-   Markdown rendered as if the MCP will convert it. Previewing Markdown
-   here hides the exact lossy round-trip these formatting rules exist to
-   avoid, so what the user approves must be byte-for-byte what gets sent.
-   Wait for explicit approval ("yes, write it" or equivalent) before
-   invoking the update.
+   the old) before calling the Jira update tool. Wait for explicit approval
+   ("yes, write it" or equivalent) before invoking the update.
 4. In the **Grill log** line, use "Description updated after grill on
    {ISO-8601 date}. Previous version preserved in issue history."
 

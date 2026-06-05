@@ -6,6 +6,8 @@ description: >
   cases against the parent's Confluence SDD pages, treats the tests as
   authoritative, and proposes targeted edits so the Intent /
   Requirements / Specs pages reflect what was actually built. Also
+  refreshes the Status section of the landing page to match the
+  ticket's current (resolved) Jira status. Also
   verifies the requirement→scenario→test chain is intact by joining
   `REQ-<slug>` IDs to their `@REQ-<slug>` citations and `@SCN-NNN`
   tags, flagging uncovered requirements and uncited scenarios. Then,
@@ -98,7 +100,13 @@ edits go through the Confluence MCP and are unaffected by this rule.
    the unresolved subtasks by key so the user can act.
 4. **Locate the SDD landing page** on `PARENT_KEY` using the canonical
    sources (SDD-titled remote issue link, then a search in
-   `${CONFLUENCE_SPACE_KEY}` for `[PARENT_KEY]: ...`).
+   `${CONFLUENCE_SPACE_KEY}` for `[PARENT_KEY]: ...`). Fetch the landing
+   page and capture the value currently shown under its **Status**
+   section. Also capture the parent's current Jira status name (from the
+   ticket fetched in step 1) — this is the as-resolved status the
+   landing page should reflect. The landing page's other sections
+   (**At a glance**, **Contents**) are out of scope for this skill;
+   only the **Status** section is reconciled.
 5. **Fetch the SDD set.** Get `[PARENT_KEY] Intent`,
    `[PARENT_KEY] Requirements`, and `[PARENT_KEY] Specs` from under
    the landing page. Refuse if any of the three is missing or empty.
@@ -235,6 +243,15 @@ For Requirements and Intent, draft minimal targeted edits — not
 rewrites. Each edit names the line that changes and the proposed
 replacement.
 
+For the **landing page**, compare the value captured under its
+**Status** section (Phase 1 step 4) against the parent's current Jira
+status name. If they differ, draft a targeted edit that replaces only
+the Status section value with the current status (typically the
+resolved status, since Phase 1 already verified the parent is
+resolved). Touch nothing else on the landing page. If the Status
+section already matches the current Jira status, there is no edit —
+record it as aligned and do not propose a write.
+
 For each **Untagged-but-legacy** row, also draft the source-tag
 retrofit: the exact comment line to insert above the existing test
 and its file/line location. The retrofit is a test-source edit; show
@@ -269,7 +286,10 @@ slug. Park explicitly with a comment if the gap is intentional.
 For each approved Confluence page:
 
 1. Apply the edits in a single update per page (one `update_page`
-   call per page, not per scenario).
+   call per page, not per scenario). This includes the **landing
+   page** when its Status section was approved for update: replace only
+   the Status section value with the current Jira status, leaving the
+   rest of the landing page untouched.
 2. Show the user the updated page URL.
 
 For each approved **tag retrofit** on a legacy test:
@@ -357,7 +377,9 @@ posting the explanatory Jira comment, and never the other way round.
      orphan-tag count.
    - Chain integrity counts: uncovered requirements, uncited
      scenarios, and dangling `@REQ-<slug>` citations.
-   - Pages updated on the current ticket (titles + URLs).
+   - Pages updated on the current ticket (titles + URLs), including the
+     landing page if its Status section was refreshed (note the old →
+     new status).
    - Tag retrofits applied to legacy tests (file paths only).
    - Siblings updated (ticket keys + page URLs) and siblings the user
      declined or skipped.
@@ -371,10 +393,10 @@ posting the explanatory Jira comment, and never the other way round.
    siblings updated, gaps outstanding.
 3. If nothing drifted — every scenario Aligned, the requirement↔scenario
    chain intact (no uncovered requirements, uncited scenarios, or
-   dangling citations), no orphan tags, no sibling changes, no
-   retrofits — the report is a clean no-op: "All aligned, no
-   reconciliation needed." Do not post a parent comment in that case;
-   there is nothing to record.
+   dangling citations), the landing page Status section already current,
+   no orphan tags, no sibling changes, no retrofits — the report is a
+   clean no-op: "All aligned, no reconciliation needed." Do not post a
+   parent comment in that case; there is nothing to record.
 
 ## Hard rules
 
@@ -390,7 +412,11 @@ posting the explanatory Jira comment, and never the other way round.
   approval. No other lines may be touched, not even reformatting or
   comment cleanup.
 - The skill never runs tests, never pushes commits, never opens MRs,
-  and never transitions Jira ticket status. The skill also does not
+  and never transitions Jira ticket status. Refreshing the **Status
+  section text on the Confluence landing page** to match the parent's
+  current Jira status is a Confluence page edit, not a Jira transition —
+  it is permitted (with approval, per the rule above) and does not
+  change the ticket's actual status in Jira. The skill also does not
   re-verify test coverage — `implement-sdd-spec` is responsible for
   ensuring every in-scope scenario has a tagged test at implementation
   time. If reconciliation finds a real gap (TODO-still-TODO, Missing,
@@ -412,8 +438,11 @@ posting the explanatory Jira comment, and never the other way round.
   description. The grill record is historical and not subject to
   as-built drift.
 - The skill never modifies tickets or pages outside the scope: the
-  parent's SDD pages plus user-confirmed sibling pages plus the parent
-  Jira ticket plus user-approved sibling Jira tickets. No other
+  parent's SDD pages (Intent / Requirements / Specs) plus the **Status
+  section of the parent's landing page** plus user-confirmed sibling
+  pages plus the parent Jira ticket plus user-approved sibling Jira
+  tickets. On the landing page, only the Status section may be edited;
+  the At a glance summary and Contents are never touched. No other
   writes.
 - Never hardcode hostnames, project keys, or space keys in any output.
   All such values come from the env vars listed above. If an MCP call

@@ -46,8 +46,9 @@ Reads:
 **Assume the Atlassian MCP and the env vars above are already configured.**
 Do not check them up front and do not prompt the user for missing values
 before attempting an MCP call. Use whichever tools the MCP exposes
-(`jira_get_issue`, `confluence_create_page`, `confluence_update_page`,
-`jira_create_remote_issue_link`, or equivalents).
+(`getJiraIssue`, `createConfluencePage`, `updateConfluencePage`,
+`addCommentToJiraIssue`, a remote-issue-link tool if the server exposes one,
+or equivalents).
 
 If an MCP call fails in a way that points at configuration — server
 unavailable, 401/403, a space key or page ID that does not resolve, a
@@ -106,15 +107,16 @@ The two directions of the link are:
 
 - **Confluence → Jira.** The landing page carries a `Source ticket:`
   header line linking to the Jira issue (see 2a).
-- **Jira → Confluence.** A remote issue link is added to the Jira ticket
-  in Phase 3 step 6, pointing at the landing page.
+- **Jira → Confluence.** A link back to the landing page is added to the
+  Jira ticket in Phase 3 step 6. Use a remote-issue-link tool if the
+  configured MCP exposes one; otherwise add a single comment carrying the
+  landing page link.
 
 Intent, Requirements, and Specs pages do **not** link directly to the
 Jira ticket. They are reached via Confluence's parent breadcrumb to the
 landing page, and from there to the ticket. This keeps the ticket's
-remote-link list to a single canonical entry and prevents the Jira
-issue from accumulating four near-duplicate Confluence references over
-re-publishes.
+back-link to a single canonical entry and prevents the Jira issue from
+accumulating four near-duplicate Confluence references over re-publishes.
 
 ### 2a. Landing page
 
@@ -257,10 +259,16 @@ drafts. Confluence writes happen in this exact order:
    with real markdown links to the three child pages, in this order:
    Intent, Requirements, Specs. Render each link with the child page
    title as the link text.
-6. **Add a remote issue link** on the Jira ticket pointing at the
-   landing page (Jira → Confluence direction of the bidirectional
-   link). Title: `SDD: <change name>`. URL: the landing page URL. This
-   makes the Confluence pages discoverable from the ticket during
+6. **Link the ticket back to the landing page** (Jira → Confluence
+   direction of the bidirectional link). If the MCP exposes a
+   remote-issue-link tool, add a remote link titled `SDD: <change name>`
+   with the landing page URL. If it does not (the official Atlassian
+   remote MCP has no create-remote-link tool), add a single comment on
+   the ticket instead, whose first line is `SDD: <change name>` followed
+   by the landing page link — same `SDD:` marker as the remote-link title,
+   so downstream skills can detect the back-link either way; on re-publish,
+   update or reuse that comment rather than adding a duplicate. Either
+   way this makes the Confluence pages discoverable from the ticket during
    implementation, complementing the `Source ticket:` header line that
    every Confluence page already carries (Confluence → Jira direction).
 
@@ -268,8 +276,9 @@ drafts. Confluence writes happen in this exact order:
 
 The four Confluence pages above are written through the Confluence MCP with
 a Markdown content format and render correctly as drafted — they are not
-affected by this rule. The one Jira-side write in this skill is the remote
-issue link in step 6. Its title (`SDD: <change name>`) is plain text, but
+affected by this rule. The one Jira-side write in this skill is the back-link
+in step 6 (a remote issue link, or a comment when no remote-link tool is
+available). A remote-link title (`SDD: <change name>`) is plain text, but
 any Jira description or comment field written through the Atlassian MCP must
 be composed in **pure standard Markdown**, never Jira wiki syntax (`h2.`,
 `{{...}}`, `*bold*` where Markdown bold is meant). The MCP converts clean
@@ -289,10 +298,11 @@ When publishing is complete, return a compact summary to the user:
 
 - Landing page: title + URL
 - Three child pages: titles + URLs
-- Jira ticket: key + a note confirming the remote link was added
+- Jira ticket: key + a note confirming how it was linked back (remote
+  link or comment)
 
-Do not write any state file. The Confluence pages and the Jira remote
-link are the persisted record.
+Do not write any state file. The Confluence pages and the Jira back-link
+are the persisted record.
 
 ## Hard Rules
 

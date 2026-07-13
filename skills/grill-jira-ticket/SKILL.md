@@ -55,7 +55,7 @@ This skill reads:
 **Assume the Atlassian MCP and the env vars above are already configured.**
 Do not check them up front and do not prompt the user for missing values
 before attempting an MCP call. Use whichever Jira tools the MCP exposes
-(`jira_get_issue`, `jira_search`, `jira_update_issue`, `jira_add_comment`,
+(`getJiraIssue`, `searchJiraIssuesUsingJql`, `editJiraIssue`, `addCommentToJiraIssue`,
 or equivalents); do not hardcode tool names tied to one server.
 
 If an MCP call fails in a way that points at configuration — server

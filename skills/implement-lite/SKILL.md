@@ -75,7 +75,7 @@ env vars.
 **Assume the Atlassian MCP and the env var above are already configured.**
 Do not check it up front and do not prompt the user for missing values
 before attempting an MCP call. Use whichever Jira tools the MCP exposes
-(`jira_get_issue`, `jira_add_comment`, or equivalents).
+(`getJiraIssue`, `addCommentToJiraIssue`, or equivalents).
 
 If an MCP call fails in a way that points at configuration — server
 unavailable, 401/403, a required field rejected as missing — surface the
@@ -86,11 +86,14 @@ directly themselves. Do not retry blindly and do not invent ticket content.
 ## Phase 1 — Load context
 
 1. **Fetch the Jira ticket.** Capture: summary, description, status, issue
-   type, the acceptance-criteria field or in-body section, labels, and the
-   remote issue links.
-2. **Check for an existing full SDD.** If a remote issue link whose title
-   starts with `SDD:` is present, stop and recommend `implement-sdd-spec`
-   (see "When to use the full path instead"). Do not implement here.
+   type, the acceptance-criteria field or in-body section, labels, the
+   remote issue links, and the comments.
+2. **Check for an existing full SDD.** If the ticket carries the back-link
+   written by `publish-sdd-to-confluence` — a remote issue link whose title
+   starts with `SDD:`, or (when the MCP has no remote-link tool) a comment
+   whose first line starts with `SDD:` and points at a Confluence landing
+   page — stop and recommend `implement-sdd-spec` (see "When to use the full
+   path instead"). Do not implement here.
 3. **Extract the acceptance criteria.** Read the **Acceptance criteria**
    section from the grill (a custom field or an in-body heading). Number
    them `AC-1`, `AC-2`, … in document order — this numbering is the

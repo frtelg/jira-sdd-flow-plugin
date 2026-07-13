@@ -52,8 +52,8 @@ Reads:
 **Assume the Atlassian MCP and the env vars above are already configured.**
 Do not check them up front and do not prompt the user for missing values
 before attempting an MCP call. Use whichever tools the MCP exposes
-(`jira_get_issue`, `confluence_get_page`, `confluence_get_page_children`,
-`confluence_search`, `jira_add_comment`, or equivalents).
+(`getJiraIssue`, `getConfluencePage`, `getConfluencePageDescendants`,
+`searchConfluenceUsingCql`, `addCommentToJiraIssue`, or equivalents).
 
 If an MCP call fails in a way that points at configuration — server
 unavailable, 401/403, a space key that does not resolve, a required field

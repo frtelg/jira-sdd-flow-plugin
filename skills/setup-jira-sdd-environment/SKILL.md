@@ -2,11 +2,12 @@
 name: setup-jira-sdd-environment
 description: >
   Walk the user through configuring the environment variables this plugin
-  needs (Jira and Confluence endpoints, credentials, project key, Confluence
-  space, SDD root page) and verify the Atlassian MCP can actually reach them.
-  Detects which variables are already set, prompts only for the missing ones,
-  produces a copy-pasteable snippet for the user's shell or `.env`, and runs
-  a connectivity check at the end. Use on first install of the plugin, when
+  needs (Jira and Confluence endpoints, project key, Confluence space, SDD
+  root page), get the bundled Atlassian MCP authorised over OAuth, and verify
+  it can actually reach them. Detects which variables are already set, prompts
+  only for the missing ones, produces a copy-pasteable snippet for the user's
+  shell or `.env`, and runs a connectivity check at the end. Use on first
+  install of the plugin, when
   a downstream skill fails with a missing-env-var error, or when the user
   asks to "set up the plugin", "configure env vars", or invokes
   /setup-jira-sdd-environment.
@@ -23,17 +24,30 @@ This skill is the entry point a new user should run first. Other skills
 in this plugin should suggest invoking this skill when they detect a
 missing or invalid env var.
 
+## Authentication
+
+The bundled `atlassian` MCP server is the official Atlassian remote MCP
+(`https://mcp.atlassian.com/v1/mcp/authv2`). It authenticates over **OAuth**,
+not an API token: the first time a skill calls it, Claude Code opens a browser
+to authorise against the user's existing Jira and Confluence permissions.
+There is no email or token env var to set and nothing secret to persist in
+this skill. If the server is not yet authorised, the user completes the OAuth
+flow by running `/mcp` in an interactive Claude Code session and authorising
+`atlassian`.
+
 ## Variables this plugin reads
 
-Authoritative list (mirror of the README config table):
+These are non-secret connection settings read by the **skills** — for
+rendering links and choosing the default project, space, and SDD root page.
+They are not credentials and are not consumed by the MCP server (which
+authenticates over OAuth, see above). Authoritative list (mirror of the
+README config table):
 
 | Variable                       | Required by                        | Notes                                                                                                  |
 |--------------------------------|------------------------------------|--------------------------------------------------------------------------------------------------------|
-| `JIRA_BASE_URL`                | All Jira skills + Atlassian MCP    | Full URL with scheme, no trailing slash. Cloud example: `https://example.atlassian.net`.                |
-| `JIRA_USER_EMAIL`              | All Jira skills + Atlassian MCP    | The account email used to mint the API token.                                                          |
-| `JIRA_API_TOKEN`               | All Jira skills + Atlassian MCP    | **Secret.** Never echo; never write into chat history. See "Secret handling" below.                    |
+| `JIRA_BASE_URL`                | All Jira skills (link rendering)   | Full URL with scheme, no trailing slash. Cloud example: `https://example.atlassian.net`.                |
 | `JIRA_PROJECT_KEY`             | Ticket-creating skills             | Project prefix, e.g. the part before the dash in an issue key.                                         |
-| `CONFLUENCE_BASE_URL`          | All Confluence skills              | For Atlassian Cloud this is usually `${JIRA_BASE_URL}/wiki`.                                           |
+| `CONFLUENCE_BASE_URL`          | All Confluence skills (link rendering) | For Atlassian Cloud this is usually `${JIRA_BASE_URL}/wiki`.                                       |
 | `CONFLUENCE_SPACE_KEY`         | Doc-writing skills                 | Space key, found in space settings.                                                                    |
 | `CONFLUENCE_SDD_ROOT_PAGE_ID`  | `publish-sdd-to-confluence`        | Numeric page ID. Extract from a Confluence page URL: `.../pages/<ID>/<slug>` → `<ID>`.                |
 
@@ -46,10 +60,9 @@ table must be updated in the same change.
    environment. Use a single shell call like `printenv` or
    `env | grep -E '^(JIRA_|CONFLUENCE_)'`.
 2. Render a status table to the user. Two columns: variable, status.
-   Status is one of `set`, `missing`, or `empty`. For `JIRA_API_TOKEN`,
-   never print the value — just `set` or `missing`. For all other
-   variables it is fine to print the current value so the user can
-   sanity-check it.
+   Status is one of `set`, `missing`, or `empty`. It is fine to print
+   the current value of each so the user can sanity-check it — none of
+   these variables is secret.
 3. Note any variables that are set but look wrong:
    - URLs without a scheme or with trailing slashes.
    - `JIRA_PROJECT_KEY` containing a dash or digits (project keys are
@@ -67,21 +80,20 @@ appear in the table. One variable per turn. For each:
    find it. Use synthetic placeholders only (`https://example.atlassian.net`,
    `PROJ`, `DOCS`, `1234567890`). Never reference a real tenant.
 2. Show the recommended format and an example.
-3. Ask for the value, unless the variable is the API token (see Secret
-   handling below).
+3. Ask for the value.
 4. If the user pastes a value that looks wrong by the heuristics in
    Phase 1, point that out and ask them to confirm or correct before
    moving on.
+
+None of these variables is a secret — authentication to Atlassian is
+handled over OAuth by the MCP server, not by an env var (see
+Authentication above).
 
 Per-variable guidance:
 
 - **`JIRA_BASE_URL`** — the URL you use to access Jira in a browser, up to
   and including the host. For Atlassian Cloud, it looks like
   `https://<tenant>.atlassian.net`.
-- **`JIRA_USER_EMAIL`** — the email address tied to the Atlassian account
-  whose API token you will use.
-- **`JIRA_API_TOKEN`** — created in your Atlassian account settings, under
-  Security → API tokens. Do not paste it into chat. See Secret handling.
 - **`JIRA_PROJECT_KEY`** — open any issue in the project the plugin will
   create tickets in. The key is the prefix of the issue key (e.g. the
   `PROJ` in `PROJ-123`).
@@ -98,7 +110,7 @@ Per-variable guidance:
 ## Phase 3 — Persist
 
 Once values are collected, ask the user where to persist them. Do not
-pick a destination silently. Offer four options and recommend based on
+pick a destination silently. Offer three options and recommend based on
 context:
 
 1. **Shell rc file** (`~/.zshrc`, `~/.bashrc`, `~/.config/fish/config.fish`,
@@ -107,8 +119,6 @@ context:
 
    ```bash
    export JIRA_BASE_URL="..."
-   export JIRA_USER_EMAIL="..."
-   # JIRA_API_TOKEN: set this separately so it does not appear in chat
    export JIRA_PROJECT_KEY="..."
    export CONFLUENCE_BASE_URL="..."
    export CONFLUENCE_SPACE_KEY="..."
@@ -120,32 +130,29 @@ context:
    keys, no `export` prefix. Remind the user to add `.env` to
    `.gitignore` if it is not already.
 
-3. **A secrets manager** (1Password CLI, macOS Keychain, AWS SSO, etc.)
-   surfaced into the shell via the manager's own command. Recommend this
-   when the user mentions one. Do not invent the exact command — ask the
-   user which manager they use and tailor accordingly.
-
-4. **Session-only** — `export` in the current shell, not persisted.
+3. **Session-only** — `export` in the current shell, not persisted.
    Useful for a one-off run. Warn the user the variables will vanish
    when the shell exits.
 
-In every case, show the block, do **not** include the API token value
-in it (always represent the token line as a comment instructing the
-user to set it separately), and have the user copy or run it. Do not
+In every case, show the block and have the user copy or run it. None of
+these values is a secret, so there is no token line to withhold. Do not
 write to the user's rc file or `.env` for them unless they explicitly
 ask you to and confirm the destination path.
 
-After the user applies the changes, remind them that the Atlassian MCP
-reads these env vars at server startup. If the MCP is already running,
-they need to restart Claude Code (or reload the MCP server) before the
-new values take effect.
+After the user applies the changes, remind them of two things. First, the
+skills read these variables from the environment, so if Claude Code was
+already running they need to restart it (or reload the environment) before
+the new values take effect. Second, the Atlassian MCP authenticates over
+OAuth, not these env vars: if it has not been authorised yet, they complete
+the OAuth flow by running `/mcp` in an interactive session and authorising
+`atlassian`.
 
 On macOS, be aware of a launch-context gotcha. GUI-launched clients (the
 Claude desktop app, and IDE integrations started from the Dock or Finder)
 do not source the user's shell startup files, so values set in `~/.zshrc`,
 `~/.zshenv`, or `~/.zprofile` are visible in a terminal but never reach a
-GUI-launched MCP server. The signature is the server receiving an
-unexpanded placeholder, for example a literal `${JIRA_BASE_URL}`. If the
+GUI-launched client. The signature is a skill receiving an unexpanded
+placeholder, for example a literal `${JIRA_BASE_URL}`. If the
 user runs a GUI client, recommend publishing the values into the per-user
 launchd environment with `launchctl setenv NAME "$NAME"` (one per variable,
 run from a shell that already has them), then fully quitting and reopening
@@ -156,26 +163,28 @@ agent file itself.
 
 ## Phase 4 — Verify
 
-Once the user confirms the env vars are applied and the MCP has been
-restarted, run a short connectivity check. Use whichever tools the
-Atlassian MCP exposes (`jira_get_all_projects`, `jira_search`,
-`confluence_get_page`, or equivalents). Run these checks in this order
-and stop at the first failure:
+Once the env vars are applied and the `atlassian` MCP has been authorised
+(see Authentication), run a short connectivity check. Use whichever tools
+the Atlassian MCP exposes (`getVisibleJiraProjects`,
+`searchJiraIssuesUsingJql`, `getConfluencePage`, or equivalents). Run these
+checks in this order and stop at the first failure:
 
-1. **Jira auth.** Call a low-cost authenticated endpoint, e.g. a
-   user-profile or accessible-projects lookup. If it fails with 401 or
-   403, the URL, email, or token is wrong — surface the verbatim error
-   and recommend regenerating the token. If instead the error contains an
-   unexpanded placeholder (a literal `${JIRA_BASE_URL}` or similar in the
-   URL), the MCP server was launched without the env vars in scope; on
-   macOS this is the GUI-launch case covered in Phase 3, so point the user
-   there rather than at the token.
+1. **Jira access.** Call a low-cost authenticated read, e.g. an
+   accessible-projects or user-profile lookup. If the server is not yet
+   authorised (an OAuth / "unauthorized" error, or Claude Code prompts to
+   connect), tell the user to run `/mcp` in an interactive session and
+   authorise `atlassian`, then re-run this check. A 401/403 after
+   authorisation means the connected account lacks permission — surface the
+   verbatim error and point the user at their Atlassian access, not at any
+   token.
 2. **Project key.** Verify `${JIRA_PROJECT_KEY}` resolves to a project
    the authenticated user can read. If it returns "not found" or "no
-   permission", tell the user the key is wrong or their account lacks
-   access.
-3. **Confluence auth.** Call any authenticated Confluence read. Same
-   401/403 handling as for Jira.
+   permission", the key is wrong or their account lacks access. If instead
+   the value arrives as an unexpanded placeholder (a literal
+   `${JIRA_PROJECT_KEY}`), the skill was launched without the env var in
+   scope; on macOS this is the GUI-launch case covered in Phase 3.
+3. **Confluence access.** Call any authenticated Confluence read. Same
+   authorisation and permission handling as for Jira.
 4. **SDD root page.** Fetch `${CONFLUENCE_SDD_ROOT_PAGE_ID}` and confirm
    it exists in `${CONFLUENCE_SPACE_KEY}`. If the page is in a different
    space, flag it: pages can technically nest cross-space but most users
@@ -194,16 +203,15 @@ sync as new skills land).
 
 ## Secret handling
 
-- Never ask the user to paste `JIRA_API_TOKEN` into chat. Always tell
-  them to set it in their shell or secrets manager out-of-band.
-- If the user pastes it anyway, flag the paste explicitly ("that looks
-  like an API token — please rotate it now"), and continue the
-  conversation without echoing the value or storing it in any draft
-  command block. Treat any shell command you produce as something that
-  will be screenshared or pasted; the token must not appear in those
-  blocks.
-- Apply the same rule to any other apparent secret the user pastes
-  (Atlassian OAuth tokens, JWTs, etc.).
+- This plugin needs no pasted secret. Authentication to Atlassian is over
+  OAuth, handled by Claude Code, and every env var above is non-secret. Do
+  not ask the user to paste an API token.
+- If the user pastes something that looks like a secret anyway (an API
+  token, OAuth token, or JWT), flag the paste explicitly ("that looks like
+  a secret — please rotate it now"), and continue without echoing the value
+  or storing it in any draft command block. Treat any shell command you
+  produce as something that will be screenshared or pasted; the secret must
+  not appear in those blocks.
 
 ## Hard rules
 

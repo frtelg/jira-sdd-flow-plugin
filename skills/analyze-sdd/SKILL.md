@@ -61,8 +61,8 @@ Reads:
 **Assume the Atlassian MCP and the env vars above are already configured.**
 Do not check them up front and do not prompt the user for missing values
 before attempting an MCP call. Use whichever read tools the MCP exposes
-(`jira_get_issue`, `confluence_get_page`, `confluence_get_page_children`,
-`confluence_search`, or equivalents). This skill calls **no write tools**.
+(`getJiraIssue`, `getConfluencePage`, `getConfluencePageDescendants`,
+`searchConfluenceUsingCql`, or equivalents). This skill calls **no write tools**.
 
 If an MCP call fails in a way that points at configuration — server
 unavailable, 401/403, a space key that does not resolve, a required field
@@ -254,8 +254,8 @@ safety pre-flight and will itself block on the two hardest stops
 ## Hard rules
 
 - The skill is strictly read-only. It calls no write tool — no
-  `confluence_update_page`, no `jira_add_comment`, no `jira_update_issue`,
-  no `jira_transition_issue` — and makes no change to code on disk. Its
+  `updateConfluencePage`, no `addCommentToJiraIssue`, no `editJiraIssue`,
+  no `transitionJiraIssue` — and makes no change to code on disk. Its
   only output is the chat report.
 - The skill never refuses. When prerequisites are missing it emits a
   CRITICAL finding naming the upstream skill that fixes it

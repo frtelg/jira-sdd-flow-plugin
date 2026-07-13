@@ -14,9 +14,9 @@ It is inspired by spec-driven development frameworks like [GitHub Spec Kit](http
 
 | Skill                       | Trigger                                                                                                     | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 |-----------------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `setup-jira-sdd-environment` | First install, "set up the plugin", "configure env vars", `/setup-jira-sdd-environment`, or any env-var error from another skill | Walks the user through the env vars this plugin needs (Jira/Confluence URLs, credentials, project key, space key, SDD root page ID). Detects which are already set, prompts only for the missing ones with per-variable guidance, produces a copy-pasteable shell/`.env` block (token line left blank by design), and verifies the Atlassian MCP can actually reach Jira and Confluence with the configured values. Run this first.                                                                                                                                                                                              |
+| `setup-jira-sdd-environment` | First install, "set up the plugin", "configure env vars", `/setup-jira-sdd-environment`, or any env-var error from another skill | Walks the user through the env vars this plugin needs (Jira/Confluence URLs, project key, space key, SDD root page ID). Detects which are already set, prompts only for the missing ones with per-variable guidance, produces a copy-pasteable shell/`.env` block, gets the Atlassian MCP authorised over OAuth, and verifies it can reach Jira and Confluence. Run this first.                                                                                                                                                                                              |
 | `grill-jira-ticket`         | "grill this ticket", `/grill-jira-ticket`, a Jira issue key, or an idea to grill                            | Interviews the user about a Jira ticket (or free-form plan) using a decision-tree grill. For an existing ticket: cross-checks against parent and siblings, flags inconsistencies, writes the resolved understanding back, and reconciles related tickets with comments explaining the change. For a free-form prompt: creates a new Jira ticket from the outcome, prompting for issue type and optional sprint before creating. Based on Matt Pocock's [`grill-me`](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md) skill.                                                                  |
-| `publish-sdd-to-confluence` | "publish SDD pages", `/publish-sdd-to-confluence`, or a Jira issue key with a request to push to Confluence | Takes a (grilled) Jira ticket and publishes it to Confluence as a four-page spec set: a landing page titled `[KEY]: Change name` with a compressed summary and table of contents, plus three children — **Intent**, **Requirements** (each a testable statement led by a stable `REQ-<slug>` ID), and **Specs** (exhaustive Gherkin scenarios, each tagged with a stable `@SCN-NNN` ID so subtasks can reference a subset, and each citing the requirement(s) it satisfies with `@REQ-<slug>` tags on the same tag line). The `REQ-<slug>` ↔ `@REQ-<slug>` pairing closes the requirement→scenario link so it is machine-checkable rather than re-derived from prose. The landing page is created under a configurable Confluence root page, and a remote link back to the landing page is added to the Jira ticket.                                                                                                                                                                                               |
+| `publish-sdd-to-confluence` | "publish SDD pages", `/publish-sdd-to-confluence`, or a Jira issue key with a request to push to Confluence | Takes a (grilled) Jira ticket and publishes it to Confluence as a four-page spec set: a landing page titled `[KEY]: Change name` with a compressed summary and table of contents, plus three children — **Intent**, **Requirements** (each a testable statement led by a stable `REQ-<slug>` ID), and **Specs** (exhaustive Gherkin scenarios, each tagged with a stable `@SCN-NNN` ID so subtasks can reference a subset, and each citing the requirement(s) it satisfies with `@REQ-<slug>` tags on the same tag line). The `REQ-<slug>` ↔ `@REQ-<slug>` pairing closes the requirement→scenario link so it is machine-checkable rather than re-derived from prose. The landing page is created under a configurable Confluence root page, and the Jira ticket is linked back to the landing page (a remote issue link where the MCP supports it, otherwise a comment).                                                                                                                                                                                               |
 | `create-subtasks`           | "split this ticket", "create subtasks for PROJ-123", `/create-subtasks`, or a Jira parent key with a request to subdivide | Splits a published SDD parent into Jira subtasks where each subtask delivers a fully working increment for a real consumer (a deployable API service, a runnable CLI, a shipping UI). The split is judgement-based, optionally guided by a user hint (e.g. `frontend and backend`, `one per repo`). Each subtask references a subset of the parent's `@SCN-NNN` scenarios under a `## Covers scenarios` heading; overlap between subtasks is allowed but every scenario must be claimed by at least one. Inventories existing subtasks first and reconciles stale or untagged ones (trim retired IDs, retrofit a claim, or post a close-recommendation) before proposing new ones. Refuses horizontal slices that do not ship on their own. |
 | `implement-lite`            | "fast lane", "lightweight implement", "implement without specs", "just build this ticket", `/implement-lite`, or a grilled Jira issue key with no Confluence SDD | **Fast lane for trivial changes.** Implements a grilled Jira ticket directly from the **Acceptance criteria** in its description, skipping the four-page Confluence SDD set entirely (the "easy, not complex" lane). Numbers the criteria `AC-1`, `AC-2`, …, discovers the host project's language and test framework, writes at least one passing test per criterion, and tags each test with an `SDD-LITE: <KEY> AC-N` comment — a namespace deliberately distinct from the full path's `SDD: <KEY> @SCN-NNN` tags so `reconcile-sdd` never picks up lite tests. Reads and writes nothing in Confluence and never creates subtasks. Refuses (and routes to the full path) when a Confluence SDD landing page already exists, when the change spans multiple deployable increments, or when traceability/reconciliation is needed; refuses (and routes to `grill-jira-ticket`) when the criteria are missing or untestable. Reports a coverage table back to the ticket and offers an upgrade hint to `publish-sdd-to-confluence` → `implement-sdd-spec` if the change turned out bigger than a trivial increment. |
 | `analyze-sdd`               | "analyze the spec", "check the SDD for consistency", "is this spec ready to build", `/analyze-sdd`, or a Jira issue key (parent or subtask) before implementing | **Read-only consistency gate, run before implementation.** Fetches the parent's **Requirements** and **Specs** pages for a Jira ticket (scoping to a subtask's claimed `@SCN-NNN` set when invoked on one) and detects incoherence that would make a build ambiguous: unresolved open questions, in-scope `# TODO:` scenario stubs, orphan requirements (a `REQ-<slug>` no scenario cites), uncited scenarios (a `@SCN-NNN` citing no requirement), dangling `@REQ-<slug>` citations, internal contradictions, Jira↔Confluence drift, near-duplicate scenarios, and untestable scenarios. Classifies each finding CRITICAL/HIGH/MEDIUM/LOW and reports a gate verdict (`BLOCKED` / `RESOLVE RECOMMENDED` / `ADVISORY` / `CLEAN`) with the upstream skill that fixes each. Writes nothing — no code, no Jira comment, no Confluence edit — and never refuses; it reports and recommends. Full SDD path only. |
@@ -25,11 +25,11 @@ It is inspired by spec-driven development frameworks like [GitHub Spec Kit](http
 
 ### Bundled MCP servers
 
-| Server      | Package                          | Used by                                            |
-|-------------|----------------------------------|----------------------------------------------------|
-| `atlassian` | [`sooperset/mcp-atlassian`](https://github.com/sooperset/mcp-atlassian) (`uvx mcp-atlassian`) | All Jira and Confluence reads and writes |
+| Server      | Endpoint                          | Used by                                            |
+|-------------|-----------------------------------|----------------------------------------------------|
+| `atlassian` | Official [Atlassian remote MCP server](https://www.atlassian.com/platform/remote-mcp-server) (`https://mcp.atlassian.com/v1/mcp/authv2`) | All Jira and Confluence reads and writes |
 
-Credentials and endpoints are passed through `env` from the variables listed in [Configuration](#configuration). Nothing is hardcoded.
+The server is hosted by Atlassian and authenticates over **OAuth** against your existing Jira and Confluence permissions — there is no API token to configure. Authorise it once by running `/mcp` and completing the browser flow for `atlassian`. The endpoint is a fixed Atlassian URL, so nothing tenant-specific is hardcoded; the tenant is whatever account you authorise.
 
 ## Installation
 
@@ -38,13 +38,13 @@ Credentials and endpoints are passed through `env` from the variables listed in 
 | Tool | Why | Install |
 |------|-----|---------|
 | [Claude Code](https://claude.ai/code) | Runs the plugin | See Claude Code docs |
-| [`uv`](https://docs.astral.sh/uv/) | Required by the bundled `mcp-atlassian` MCP server (`uvx mcp-atlassian`) | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 
-Verify both are on your PATH before continuing:
+The bundled `atlassian` MCP server is remote and hosted by Atlassian, so no local runtime (`uv`, `npx`, Docker) is needed. You do need an Atlassian Cloud account with access to the Jira and Confluence you intend to use.
+
+Verify Claude Code is on your PATH before continuing:
 
 ```bash
 claude --version
-uvx --version
 ```
 
 ### 1. Install into Claude Code
@@ -64,8 +64,10 @@ Verify it loaded:
 
 ### 2. Configure environment variables
 
-The bundled MCP server and every skill in this plugin read connection details
-from environment variables. Run the setup skill to be guided through them:
+Every skill in this plugin reads non-secret connection details (Jira and
+Confluence URLs, project key, space key, SDD root page ID) from environment
+variables. None of them is a credential — authentication is handled over OAuth
+in step 3. Run the setup skill to be guided through them:
 
 ```
 /setup-jira-sdd-environment
@@ -74,22 +76,15 @@ from environment variables. Run the setup skill to be guided through them:
 Or set the variables manually in your shell rc file before starting Claude Code
 (see [Configuration](#configuration) for the full list).
 
-> **Token safety.** Never paste your Jira API token into the chat window. The
-> setup skill will instruct you to set `JIRA_API_TOKEN` out-of-band in your
-> shell or secrets manager.
-
-### 3. Restart Claude Code
-
-The MCP server reads environment variables at startup. If Claude Code was
-already running when you set the variables, restart it so the new values take
-effect.
+The skills read these variables from the environment, so if Claude Code was
+already running when you set them, restart it so the new values take effect.
 
 On macOS, GUI-launched clients (the desktop app and IDE integrations started
 from the Dock or Finder) do not read your shell startup files (`.zshenv`,
 `.zshrc`, `.zprofile`), so variables exported there reach a terminal but not a
-GUI-launched app. The symptom is the bundled MCP server receiving an
-unexpanded placeholder such as a literal `${JIRA_BASE_URL}`. Publish the values
-into the per-user launchd environment, then fully quit and reopen the app:
+GUI-launched app. The symptom is a skill receiving an unexpanded placeholder
+such as a literal `${JIRA_BASE_URL}`. Publish the values into the per-user
+launchd environment, then fully quit and reopen the app:
 
 ```bash
 launchctl setenv JIRA_BASE_URL "$JIRA_BASE_URL"   # repeat per variable
@@ -97,6 +92,18 @@ launchctl setenv JIRA_BASE_URL "$JIRA_BASE_URL"   # repeat per variable
 
 For persistence across logins, use a login `LaunchAgent` that re-runs
 `launchctl setenv` from your shell environment.
+
+### 3. Authorise the Atlassian MCP
+
+The bundled `atlassian` server authenticates over OAuth, not an API token.
+Authorise it once against your Jira and Confluence account:
+
+```
+/mcp
+```
+
+Select `atlassian` and complete the browser sign-in. Claude Code stores the
+authorisation; you only repeat this if it is revoked or expires.
 
 ### 4. Verify connectivity
 
@@ -107,8 +114,8 @@ at any time:
 /setup-jira-sdd-environment
 ```
 
-When all checks pass — Jira auth, project key, Confluence auth, and SDD root
-page — the plugin is ready to use.
+When all checks pass — Jira access, project key, Confluence access, and SDD
+root page — the plugin is ready to use.
 
 ## Layout
 
@@ -183,36 +190,30 @@ Wire shell commands to Claude Code events in `hooks/hooks.json`:
 
 ### MCP servers
 
-Declare bundled MCP servers in `.mcp.json` (same shape as user-level config). Pass endpoints and credentials through the `env` block — never inline literal hostnames or tokens:
+Declare bundled MCP servers in `.mcp.json` (same shape as user-level config). This plugin bundles the official Atlassian remote MCP, reached over HTTP and authenticated via OAuth, so it carries no credentials in config:
 
 ```json
 {
   "mcpServers": {
     "atlassian": {
-      "command": "npx",
-      "args": ["-y", "some-atlassian-mcp-server"],
-      "env": {
-        "JIRA_BASE_URL": "${JIRA_BASE_URL}",
-        "JIRA_USER_EMAIL": "${JIRA_USER_EMAIL}",
-        "JIRA_API_TOKEN": "${JIRA_API_TOKEN}",
-        "CONFLUENCE_BASE_URL": "${CONFLUENCE_BASE_URL}"
-      }
+      "type": "http",
+      "url": "https://mcp.atlassian.com/v1/mcp/authv2"
     }
   }
 }
 ```
 
+For a local (stdio) server instead, pass endpoints and credentials through an `env` block that references environment variables — never inline literal hostnames or tokens.
+
 ## Configuration
 
-The plugin is **organisation-agnostic**: it ships with no hardcoded servers, project keys, space keys, or tenant names. Every connection detail and identifier is read from environment variables at runtime. Set the ones a given skill or MCP server requires before invoking it.
+The plugin is **organisation-agnostic**: it ships with no hardcoded project keys, space keys, or tenant names. Every identifier below is read from environment variables at runtime; set the ones a given skill requires before invoking it. The bundled MCP server needs none of these — it authenticates over OAuth (see [step 3](#3-authorise-the-atlassian-mcp)). All the variables below are non-secret connection settings used by the skills.
 
 | Variable                | Purpose                                                       | Required by                  | Example                            |
 |-------------------------|---------------------------------------------------------------|------------------------------|------------------------------------|
-| `JIRA_BASE_URL`         | Jira instance URL                                             | any Jira skill / MCP server  | `https://example.atlassian.net`    |
-| `JIRA_USER_EMAIL`       | Jira account email for API auth                               | any Jira skill / MCP server  | `user@example.com`                 |
-| `JIRA_API_TOKEN`        | Jira API token                                                | any Jira skill / MCP server  | `***`                              |
+| `JIRA_BASE_URL`         | Jira instance URL, for rendering issue links                  | any Jira skill               | `https://example.atlassian.net`    |
 | `JIRA_PROJECT_KEY`      | Default Jira project for ticket creation/search               | ticket-creating skills       | `PROJ`                             |
-| `CONFLUENCE_BASE_URL`   | Confluence instance URL                                       | any Confluence skill         | `https://example.atlassian.net/wiki` |
+| `CONFLUENCE_BASE_URL`   | Confluence instance URL, for rendering page links             | any Confluence skill         | `https://example.atlassian.net/wiki` |
 | `CONFLUENCE_SPACE_KEY`  | Default Confluence space for spec/intent pages                | doc-writing skills           | `DOCS`                             |
 | `CONFLUENCE_SDD_ROOT_PAGE_ID` | Numeric Confluence page ID that SDD landing pages are created under (extract from a Confluence page URL, e.g. `.../pages/1234567890/Specs` → `1234567890`) | `publish-sdd-to-confluence` | `1234567890` |
 
@@ -287,8 +288,8 @@ two ways of walking these phases — the fast lane stops after **Refine** and
    grilled ticket into a four-page Confluence spec set: a landing page plus
    **Intent**, **Requirements** (each led by a stable `REQ-<slug>` ID), and
    **Specs** (exhaustive Gherkin scenarios, each tagged `@SCN-NNN` and citing
-   the requirements it satisfies with `@REQ-<slug>` tags). A remote link back
-   to the landing page is added to the Jira ticket. The `REQ ↔ @REQ ↔ @SCN`
+   the requirements it satisfies with `@REQ-<slug>` tags). The Jira ticket is
+   linked back to the landing page. The `REQ ↔ @REQ ↔ @SCN`
    tagging is what makes the requirement→scenario→test chain checkable later.
 
 3. **Split** (`create-subtasks`, full path, optional). Divides the published
